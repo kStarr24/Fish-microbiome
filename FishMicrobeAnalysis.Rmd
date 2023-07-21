@@ -743,7 +743,6 @@ pcoa <- pcoaplot1 | pcoaplot2
 pcoa
 ```
 
-This plate looks very good! These data don't match the data I found in my previous look. I wonder if there is an issue with my renaming system and if I misidentified the negative controls previously....
 
 ## Fecal_pt2_and_DEQ Plate 3: Fecal Samples
 
