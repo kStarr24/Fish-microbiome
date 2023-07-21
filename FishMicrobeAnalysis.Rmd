@@ -1,0 +1,1277 @@
+---
+title: "Fish Microbiome Analysis"
+author: "Krista Starr"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    toc: yes
+---
+
+# Research Questions
+
+-   Which gut microbes are aquired from the environment (river water)?
+-   Which gut microbes are atocthonous to specific species and may be selected for by the host species?
+-   Are there gut microbes associated with specific trophic levels of the host fish species?
+
+# Setup
+
+Bring in mapping file for all samples and filter out samples unrelated to this research project. Three types of samples are present in these sequencing runs: DEQ, fish fecal, and water samples. This analysis is interested only in fish fecal samples and associated water samples.
+
+```{r, eval = FALSE}
+#mapping = read.csv("waseem_sampledata.csv")
+
+# make sure negatives all say "negative" in the sample type coloumn
+#mapping$sampleType[13]
+#mapping$sampleType[13] = "negative"
+
+#mapping$sampleType[33]
+#mapping$sampleType[33] = "negative"
+
+#mapping$sampleType[70]
+#mapping$sampleType[70] = "negative"
+
+#mapping$sampleType[90]
+#mapping$sampleType[90] = "negative"
+
+#sampleTypes = c("negative", "fecal", "water")
+
+#mapping = subset(mapping, mapping$sampleType %in% sampleTypes)
+
+# View head of final mapping file and check out dimensions of the file (number of samples, number of columns)
+#head(mapping)
+#dim(mapping)
+
+# Save cleaned up mapping file
+#write.csv(mapping, "fishMappingFile.csv")
+```
+
+I realized that there are 4 negative control sample names that are used twice. I'm going to rename these samples in the main mapping file for this project and in the mapping file for that sequencing run.
+
+```{r, eval = FALSE}
+# Fecal_pt1_and_DEQ = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\Fecal-pt1_and-DEQ\\fecalpt1-and-DEQ-complete-edit_miseq.txt")
+# 
+# #View(Fecal_pt1_and_DEQ)
+# miseqID_negatives = c("270", "253", "226", "208")
+# 
+# Fecal_pt1_and_DEQ[Fecal_pt1_and_DEQ$miseqID == 270,]
+# Fecal_pt1_and_DEQ[Fecal_pt1_and_DEQ$miseqID == 253,]
+# Fecal_pt1_and_DEQ[Fecal_pt1_and_DEQ$miseqID == 226,]
+# Fecal_pt1_and_DEQ[Fecal_pt1_and_DEQ$miseqID == 208,]
+# 
+# Fecal_pt1_and_DEQ$sampleID[208] = "negative50"
+# Fecal_pt1_and_DEQ$sampleID[226] = "negative51"
+# Fecal_pt1_and_DEQ$sampleID[251] = "negative52"
+# Fecal_pt1_and_DEQ$sampleID[268] = "negative53"
+
+#View(Fecal_pt1_and_DEQ)
+
+#write.csv(Fecal_pt1_and_DEQ, "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\Fecal_pt1_and_DEQ_negFix.csv" )
+
+# Now fix my main mapping file:
+#View(mapping)
+# 
+# mapping[mapping$sampleID == "neg16",]
+# mapping[26,]
+# 
+# mapping[mapping$sampleID == "neg17",]
+# mapping[44,]
+# 
+# mapping[mapping$sampleID == "neg18",]
+# mapping[69,]
+# 
+# mapping[mapping$sampleID == "neg19",]
+# mapping[86,]
+# 
+# mapping$sampleID[26] = "negative50"
+# mapping$sampleID[44] = "negative51"
+# mapping$sampleID[69] = "negative52"
+# mapping$sampleID[86] = "negative53"
+
+#View(mapping)
+#write.csv(mapping, "fishMappingFile.csv")
+```
+
+Load in cleaned up mapping file
+
+```{r}
+mapping = read.csv("fishMappingFile.csv")
+```
+
+Load packages
+
+```{r, message=FALSE}
+library("import")
+library("knitr")
+library("BiocManager")
+library("BiocStyle")
+library("ggplot2")
+library("gridExtra")
+library("Rcpp")
+library("dada2")
+library("phyloseq")
+library("DECIPHER")
+library("ape")
+library("phangorn")
+library("ShortRead")
+library("R.utils")
+library("MicrobiotaProcess")
+```
+
+Find the fastq files.\
+In this project there is a challenge because the sequences were done in 4 separate sequencing runs. There are output files in sequencing runs that have the same names as files in another run but represent different samples. I need to change the number at the begining of the Fastq file name from the miSeq ID to the sample ID
+
+## Moving and renaming first sequencing run fastq files
+
+```{r, eval = FALSE}
+# Sequencing run "Fecal-pt1_and_DEQ"
+Fecal_pt1_and_DEQ = read.csv("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\Fecal_pt1_and_DEQ_negFix.csv")
+
+Fecal_pt1_fastq = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\Fecal-pt1_and-DEQ\\fastq"
+list.files(Fecal_pt1_fastq)
+
+
+# sort fastq files by the read type
+fnFs_1 = sort(list.files(Fecal_pt1_fastq, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_1 = sort(list.files(Fecal_pt1_fastq, pattern="_R2_001.fastq.gz")) #reverse reads
+fnI1s_1 = sort(list.files(Fecal_pt1_fastq, pattern="_I1_001.fastq.gz")) #I1 reads???
+fnI2s_1 = sort(list.files(Fecal_pt1_fastq, pattern="_I2_001.fastq.gz")) #I2 reads???
+head(fnFs_1)
+# Specify the full path to the fnFs and fnRs
+fnFs_1 = file.path(Fecal_pt1_fastq, fnFs_1)
+fnRs_1 = file.path(Fecal_pt1_fastq, fnRs_1)
+head(fnFs_1)
+
+# Create a pathway to store renamed fastq files
+fastq_path = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\fastqFiles"
+
+# copy all the files to my work folder for this project: the number of file names going into file.copy() need to match the number of locations to copy to even if its the same location.
+str(fnFs_1)
+str(fnRs_1)
+
+for(i in 1:285){
+  file.copy(fnFs_1[i],fastq_path)
+  file.copy(fnRs_1[i],fastq_path)
+}
+
+#list files copied over to working folder
+list.files(fastq_path)
+
+#Redefine fnFs and fnRs to be the working folder files
+fnFs_1 = sort(list.files(fastq_path, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_1 = sort(list.files(fastq_path, pattern="_R2_001.fastq.gz")) #reverse reads
+head(fnFs_1)
+
+# miseqID
+miSeqID<- Fecal_pt1_and_DEQ$miseqID
+miSeqID
+
+# sampleID
+sampleNames = Fecal_pt1_and_DEQ$sampleID
+sampleNames
+
+### check everything out
+str(fnFs_1)
+str(fnRs_1)
+str(miSeqID)
+str(sampleNames)
+# Extract sample names from fastq files, assuming filenames have format: SAMPLENAME_XXX.fastq
+fnFs_1 = sort(list.files(Fecal_pt1_fastq, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_1 = sort(list.files(Fecal_pt1_fastq, pattern="_R2_001.fastq.gz")) #reverse reads
+fastq_samplenames <- sapply(strsplit(basename(fnFs_1), "_"), `[`, 1)
+fastq_samplenames
+
+# are all fastq files in the mapping file?
+fastq_samplenames %in% miSeqID
+    #all good here!
+# do all the miseqids in the mapping file have a corresponding fastq file?
+miSeqID %in% fastq_samplenames
+    #all good here!
+
+#created correct ordered list of fastq files with the miseqID labeling
+miseqFs = file.path(fastq_path, paste0(miSeqID, "_S", miSeqID, "_L001_R1_001.fastq.gz"))
+miseqRs = file.path(fastq_path, paste0(miSeqID, "_S", miSeqID, "_L001_R2_001.fastq.gz"))
+head(miseqFs)
+  
+# Prepare to rename files so that they have the sampleID rather than the miseqID
+renamedFs <- file.path(fastq_path, paste0(sampleNames, "_F_sampleNames.fastq.gz"))
+renamedRs <- file.path(fastq_path, paste0(sampleNames, "_R_sampleNames.fastq.gz"))
+head(renamedRs)
+
+# Rename files
+for(i in 1:dim(Fecal_pt1_and_DEQ)[1]){
+  file.rename(miseqFs[i],renamedFs[i])
+  file.rename(miseqRs[i],renamedRs[i])
+}
+
+# make sure all files were named
+fnFs_1 = sort(list.files(fastq_path, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_1 = sort(list.files(fastq_path, pattern="_R2_001.fastq.gz")) #reverse reads
+head(fnFs_1)
+head(fnRs_1)
+# All files moved over were sucessfully renamed
+```
+
+## Moving and renaming second sequencing run fastq files
+
+```{r, eval = FALSE}
+# Sequencing run "Fecal-pt2_and_DEQ"
+Fecal_pt2_and_DEQ = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\Fecal-pt2_and-DEQ\\fecalpt2-and-DEQ_edit_miseq.txt")
+
+Fecal_pt2_fastq = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\Fecal-pt2_and-DEQ\\fastq"
+list.files(Fecal_pt2_fastq)
+
+# sort fastq files by the read type
+fnFs_2 = sort(list.files(Fecal_pt2_fastq, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_2 = sort(list.files(Fecal_pt2_fastq, pattern="_R2_001.fastq.gz")) #reverse reads
+fnI1s_2 = sort(list.files(Fecal_pt2_fastq, pattern="_I1_001.fastq.gz")) #I1 reads???
+fnI2s_2 = sort(list.files(Fecal_pt2_fastq, pattern="_I2_001.fastq.gz")) #I2 reads???
+head(fnFs_2)
+# Specify the full path to the fnFs and fnRs
+fnFs_2 = file.path(Fecal_pt2_fastq, fnFs_2)
+fnRs_2 = file.path(Fecal_pt2_fastq, fnRs_2)
+head(fnFs_2)
+
+#Create a pathway to store renamed fastq files
+fastq_path = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\fastqFiles"
+
+# copy all the files to my work folder for this project: the number of file names going into file.copy() need to match the number of locations to copy to even if its the same location.
+str(fnFs_2)
+str(fnRs_2)
+
+for(i in 1:271){
+  file.copy(fnFs_2[i],fastq_path)
+  file.copy(fnRs_2[i],fastq_path)
+}
+
+#Redefine fnFs and fnRs to be the working folder files
+fnFs_2 = sort(list.files(fastq_path, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_2 = sort(list.files(fastq_path, pattern="_R2_001.fastq.gz")) #reverse reads
+head(fnFs_2)
+
+# miseqID
+miSeqID<- Fecal_pt2_and_DEQ$X
+miSeqID
+
+# sampleID
+sampleNames = Fecal_pt2_and_DEQ$sampleID
+sampleNames
+
+#### Trouble Shooting ####
+# need to compare sample ids in the fastq files to those in the mapping files. There is a mismatch between the mapping and the fastq list. I have 271 files and 272 lines in the mapping file. I also know that I have a file for 221 but no info on the mapping file to correspond.
+str(fnFs_2)
+str(fnRs_2)
+str(miSeqID)
+str(sampleNames)
+# Extract sample names from fastq files, assuming filenames have format: SAMPLENAME_XXX.fastq
+fnFs_2 = sort(list.files(Fecal_pt2_fastq, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_2 = sort(list.files(Fecal_pt2_fastq, pattern="_R2_001.fastq.gz")) #reverse reads
+fastq_samplenames <- sapply(strsplit(basename(fnFs_2), "_"), `[`, 1)
+fastq_samplenames
+
+# are all fastq files in the mapping file?
+fastq_samplenames %in% miSeqID
+fastq_samplenames[42] # sample 221 is not in the mapping file
+# do all the miseqids in the mapping file have a corresponding fastq file?
+miSeqID %in% fastq_samplenames
+miSeqID[19]
+miSeqID[119] # sample 20 and 222 do not have corresponding fastq files?
+
+#I'm going to solve the problem by removing the fastq file for 221 and removing the metadata lines for samples 20 and 222 so that everything lines up
+Fecal_pt2_and_DEQ[19,]
+Fecal_pt2_and_DEQ[119,]
+Fecal_pt2_and_DEQ = Fecal_pt2_and_DEQ[-c(19,119),]
+dim(Fecal_pt2_and_DEQ)
+##### Back on Track #####
+
+# Recollect miSeqID and sampleIDs
+# miseqID
+miSeqID<- Fecal_pt2_and_DEQ$X
+miSeqID
+
+# sampleID
+sampleNames = Fecal_pt2_and_DEQ$sampleID
+sampleNames
+
+#created correct ordered list of fastq files with the miseqID labeling
+miseqFs = file.path(fastq_path, paste0(miSeqID, "_S", miSeqID, "_L001_R1_001.fastq.gz"))
+miseqRs = file.path(fastq_path, paste0(miSeqID, "_S", miSeqID, "_L001_R2_001.fastq.gz"))
+head(miseqFs)
+ 
+# Prepare to rename files so that they have the sampleID rather than the miseqID
+renamedFs <- file.path(fastq_path, paste0(sampleNames, "_F_sampleNames.fastq.gz"))
+renamedRs <- file.path(fastq_path, paste0(sampleNames, "_R_sampleNames.fastq.gz"))
+head(renamedRs)
+
+# Rename files
+for(i in 1:dim(Fecal_pt2_and_DEQ)[1]){
+  file.rename(miseqFs[i],renamedFs[i])
+  file.rename(miseqRs[i],renamedRs[i])
+}
+
+
+# make sure all files were named
+fnFs_2 = sort(list.files(fastq_path, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_2 = sort(list.files(fastq_path, pattern="_R2_001.fastq.gz")) #reverse reads
+head(fnFs_2)
+head(fnRs_2)
+# I will manually go in and delete the fastq for sample 221 since the metadata file has no information on it.
+```
+
+## Moving and renaming thrid sequencing run fastq files
+
+```{r, eval = FALSE}
+# Sequencing run "PlatteMicrobe_DEQ_Redos"
+PlatteMicrobe_DEQ_Redos = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\PlatteMicrobe_DEQ_Redos\\plattemicrobe_deq_redos_edit_MISEQ.txt")
+
+PlatteMicrobe_fastq = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\PlatteMicrobe_DEQ_Redos\\fastq"
+list.files(PlatteMicrobe_fastq)
+
+# sort fastq files by the read type
+fnFs_3 = sort(list.files(PlatteMicrobe_fastq, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_3 = sort(list.files(PlatteMicrobe_fastq, pattern="_R2_001.fastq.gz")) #reverse reads
+fnI1s_3 = sort(list.files(PlatteMicrobe_fastq, pattern="_I1_001.fastq.gz")) #I1 reads???
+fnI2s_3 = sort(list.files(PlatteMicrobe_fastq, pattern="_I2_001.fastq.gz")) #I2 reads???
+head(fnFs_3)
+head(fnRs_3)
+# Specify the full path to the fnFs and fnRs
+fnFs_3 = file.path(PlatteMicrobe_fastq, fnFs_3)
+fnRs_3 = file.path(PlatteMicrobe_fastq, fnRs_3)
+head(fnFs_3)
+head(fnRs_3)
+
+#Create a pathway to store renamed fastq files
+fastq_path = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\fastqFiles"
+
+# copy all the files to my work folder for this project: the number of file names going into file.copy() need to match the number of locations to copy to even if its the same location.
+str(fnFs_3)
+str(fnRs_3)
+
+for(i in 1:357){
+  file.copy(fnFs_3[i],fastq_path)
+  file.copy(fnRs_3[i],fastq_path)
+}
+
+#Redefine fnFs and fnRs to be the working folder files
+fnFs_3 = sort(list.files(fastq_path, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_3 = sort(list.files(fastq_path, pattern="_R2_001.fastq.gz")) #reverse reads
+head(fnFs_3)
+
+# miseqID
+miSeqID<- PlatteMicrobe_DEQ_Redos$X
+miSeqID
+
+# sampleID
+sampleNames = PlatteMicrobe_DEQ_Redos$sampleID
+sampleNames
+
+# check everything out
+str(fnFs_3)
+str(fnRs_3)
+str(miSeqID)
+str(sampleNames)
+
+# Extract sample names from fastq files, assuming filenames have format: SAMPLENAME_XXX.fastq
+fnFs_3 = sort(list.files(PlatteMicrobe_fastq, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_3 = sort(list.files(PlatteMicrobe_fastq, pattern="_R2_001.fastq.gz")) #reverse reads
+fastq_samplenames <- sapply(strsplit(basename(fnFs_3), "_"), `[`, 1)
+fastq_samplenames
+
+# are all fastq files in the mapping file?
+fastq_samplenames %in% miSeqID
+fastq_samplenames[103] 
+fastq_samplenames[105]
+fastq_samplenames[202] # fastq files for miseqIDs 193, 196, 288 are not in the mapping file
+# do all the miseqids in the mapping file have a corresponding fastq file?
+miSeqID %in% fastq_samplenames
+miSeqID[189]
+miSeqID[191]
+miSeqID[341]# sample 191,194, and 356 do not have corresponding fastq files?
+
+
+#I'm going to solve the problem by removing the fastq files for 193, 196, and 288 and removing the metadata lines for samples 191, 194, and 356 so that everything lines up
+PlatteMicrobe_DEQ_Redos[189,]
+PlatteMicrobe_DEQ_Redos[191,]
+PlatteMicrobe_DEQ_Redos[341,]
+PlatteMicrobe_DEQ_Redos = PlatteMicrobe_DEQ_Redos[-c(189,191,341),]
+dim(PlatteMicrobe_DEQ_Redos)
+
+# Recollect miSeqID and sampleIDs
+# miseqID
+miSeqID<- PlatteMicrobe_DEQ_Redos$X
+miSeqID
+
+# sampleID
+sampleNames = PlatteMicrobe_DEQ_Redos$sampleID
+sampleNames
+
+#created correct ordered list of fastq files with the miseqID labeling
+miseqFs = file.path(fastq_path, paste0(miSeqID, "_S", miSeqID, "_L001_R1_001.fastq.gz"))
+miseqRs = file.path(fastq_path, paste0(miSeqID, "_S", miSeqID, "_L001_R2_001.fastq.gz"))
+head(miseqFs)
+
+# Prepare to rename files so that they have the sampleID rather than the miseqID
+renamedFs <- file.path(fastq_path, paste0(sampleNames, "_F_sampleNames.fastq.gz"))
+renamedRs <- file.path(fastq_path, paste0(sampleNames, "_R_sampleNames.fastq.gz"))
+head(renamedRs)
+
+# Rename files
+for(i in 1:dim(PlatteMicrobe_DEQ_Redos)[1]){
+  file.rename(miseqFs[i],renamedFs[i])
+  file.rename(miseqRs[i],renamedRs[i])
+}
+
+# make sure all files were named
+fnFs_3 = sort(list.files(fastq_path, pattern="_R1_001.fastq.gz")) #forward reads
+fnRs_3 = sort(list.files(fastq_path, pattern="_R2_001.fastq.gz")) #reverse reads
+head(fnFs_3)
+head(fnRs_3)
+# I will manually go in and delete the fastq for samples 191,194, and 356 since the metadata file has no information on it.
+
+```
+
+At this point I have all the fastq samples renamed to the format "sampleName_F\_sampleNames.fastq.gz" or "sampleName_R\_sampleNames.fastq.gz" and located in the `fastq_path`. Now I need to use the mapping file that is filtered to have only fish fecal samples and water samples to remove all fastq files from DEQ samples which I am not interested in.
+
+```{r, eval = FALSE}
+
+# PROBLEM: some samples have names like 100_3, these are all called 100 using this code.
+  # in addition this is true in the fastq file names as well as the mapping file.
+  # I'm just going to manually rename the files and change the mapping file so that any sample with an underscore has a dash instead.
+
+
+# View(mapping)
+# approach: create a list of file names that I want to keep to coppy over to a new folder.
+sampleID = mapping$sampleID
+sampleID
+
+# list of files I want to coppy
+keepFastqFs = file.path(fastq_path, paste0(sampleID, "_F_sampleNames.fastq.gz"))
+keepFastqRs = file.path(fastq_path, paste0(sampleID, "_R_sampleNames.fastq.gz"))
+keepFastqFs
+
+# redefine fastq_path to be the final location
+fastq_path = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\fastqFiles_final"
+
+# Extract sample names from fastq files, assuming filenames have format: SAMPLENAME_XXX.fastq
+fnFs = sort(list.files(fastq_path, pattern="_F_sampleNames.fastq.gz")) #forward reads
+fnRs = sort(list.files(fastq_path, pattern="_R_sampleNames.fastq.gz")) #reverse reads
+fastq_samplenames <- sapply(strsplit(basename(fnFs), "_"), `[`, 1)
+fastq_samplenames
+
+# are they all there?
+sampleID %in% fastq_samplenames # neg1-4 weren't coppied over?, 
+sampleID[1:4] #These aren't in the sequencing runs I'm looking at. no worries
+fastq_samplenames %in% sampleID
+
+# Coppy over keep fastqs to the final location
+str(keepFastqFs)
+str(keepFastqRs)
+
+for(i in 1:336){
+  file.copy(keepFastqFs[i],fastq_path)
+  file.copy(keepFastqRs[i],fastq_path)
+  }
+
+```
+
+Now the folder "fastqFiles_final" contains the fastq files of only samples of interest that are renamed from the miseqID format to the sampleID format.
+
+Give a project name. This will be included in the file names of many output files
+
+```{r}
+project_name = "FishMicrobiome"
+```
+
+Give the full path to the directory/folder containing your dereplicated fastq files
+
+```{r}
+fastq_files = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\fastqFiles_final"
+```
+
+# DADA2 Pipeline
+
+filter and trim fastq files
+
+```{r}
+fnFs <- sort(list.files(fastq_files, pattern="_F_sampleNames.fastq")) #forward reads
+fnRs <- sort(list.files(fastq_files, pattern="_R_sampleNames.fastq")) #reverse reads
+fnFs
+```
+
+Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+
+```{r}
+
+sampleNames <- sapply(strsplit(fnFs, "_"), `[`, 1)
+sampleNames
+```
+
+Specify the full path to the fnFs and fnRs
+
+```{r}
+fnFs <- file.path(fastq_files, fnFs)
+fnRs <- file.path(fastq_files, fnRs)
+fnFs[1:3]
+fnRs[1:3]
+```
+
+Unzip fastqfiles
+
+```{r, eval = FALSE}
+
+str(fnFs)
+str(fnRs)
+
+for(i in 1:332){
+  gunzip(fnFs[i])
+  gunzip(fnRs[i])
+}
+
+```
+
+Need to reset `fnFs` and `fnRs` to be the fastq files unzipped
+
+```{r}
+fnFs <- sort(list.files(fastq_files, pattern="_F_sampleNames.fastq")) #forward reads
+fnRs <- sort(list.files(fastq_files, pattern="_R_sampleNames.fastq")) #reverse reads
+fnFs[1:3]
+
+fnFs <- file.path(fastq_files, fnFs)
+fnRs <- file.path(fastq_files, fnRs)
+fnFs[1:3]
+fnRs[1:3]
+```
+
+Quality plots will allow you to determine how to truncate your reads
+
+-   can change to view more than two plots at a time example: plotQualityProfile(fnFs[1:10])
+-   be sure to know if you are looking at a negative control!
+-   Your Q score plots should not look as "good" on a negative vs positive vs sample
+
+```{r}
+plotQualityProfile(fnFs[1:6])
+plotQualityProfile(fnRs[1:6])
+```
+
+Based on these quality profiles I will try trimming the reads at 240 on the forward read and 160 on the reverse reads. The rest of the DADA2 pipeline will be done on HCC crane. Output files will be uploaded.
+
+## Assess Negative Controls
+
+After starting the DADA2 pipeline I noticed that many of the negative controls seem to have concerningly large read counts.
+
+```{r}
+load("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\fishMicrobe_out.rds")
+out
+str(out)
+outTable = as.data.frame(out)
+names(outTable)
+dim(outTable)
+# these are the negative controls
+outTable[289:332,]
+boxplot(outTable$reads.in[289:332], outTable$reads.in[1:288], names = c("negatives", "samples"))
+
+
+# I don't have Ester's lab notebook containing the first sequencing run work. However her mapping files for sequencing runs 2 and 3 were acurate so I will use the mapping file for sequencing run 1 to look at the negative controls for each plate in the run
+run1plate1 = c("neg5", "neg6", "neg7", "neg8")
+outTable[309:312,]
+
+run1plate2 = c("neg9", "neg10", "neg11", "neg12", "neg13", "neg14")
+rows = c(313, 289, 290, 291, 292, 293)
+outTable[rows,]
+
+run1plate3 = c("neg15", "negative50", "negative51", "negative52", "negative53") 
+rows = c(293, 329, 330, 331, 332)
+outTable[rows,]
+
+# The samples in "Fecal_pt2_and_DEQ" that occupy miseqIDs 1-96 are all DEQ samples. I have not found anything in the lab notebook to crossrefference too but These negative controls are not relavant to the current study because they are not from a plate with samples of interest.
+run2plate1 = c("neg16", "neg17", "neg18", "neg19", "neg20")
+outTable[295:299,]
+
+# Confirmed through comparison to lab notebook: There is a plate of samples in "Fecal_pt2_and_DEQ" that has only these negative controls, the plate is 11-6-2019: Fecal 8/5-8/14. Neg 26 was removed above because there was no fastq file for that miseq ID in the shared folder.
+run2plate3 = c("neg25", "neg26", "neg27", "neg28", "neg29", "neg30")
+outTable[300:304,]
+
+# Confirmed through comparison to lab notebook: There is a plate of samples in "Fecal_pt2_and_DEQ" that has only these negative controls. The plate is 11-08-2019, Fecal+DEQs500+600 (primer4).
+run2plate4 = c("neg31", "neg32", "neg33", "neg34")
+outTable[305:308,]
+
+
+
+# Confirmed through comparison to lab notebook: There is a plate of samples in "PlatteMicrobe_DEQ_Redos" That has only these negative controls. The plate is Platte Microbe Samples dated 12-02-2019. I presume it was primer plate 1 based on the associated miseqIDs
+run3plate1 = c("Negative35", "Negative36", "Negative37", "Negative38")
+outTable[314:317,]
+
+# Confirmed through comparison to lab notebook: Plate 1-8-2020, DEQ Straggling Samples + 600s primer 2 is part of sequencing run "PlatteMicrobe_DEQ_Redos". All samples on this plate are DEQ samples and irrelevant to the current study
+run3plate2 = c("Negative 39", "Negative40", "Negative41", "Negative42")
+outTable[318:321,]
+
+# Confirmed through comparison to lab notebook: Plate 1-10-2020, DEQ strag+600+700 primer 3 is part of sequencing run "PlatteMicrobe_DEQ_Redos". All samples in this plate are DEQ samples and irrelevant to the current study.
+run3plate3 = c("Negative43", "Negative44", "Negative45", "Negative46")
+outTable[322:325,]
+
+# Confirmed through comparison to lab notebook: Plate 1-16-2020, DEQ 700s + Redos from other plates is part of sequencing run "PlatteMicrobe_DEQ_Redos". There are a few samples of interest in this plate
+run3plate4 = c("Negative47", "Negative48", "Negative49")
+outTable[326:328,]
+
+```
+
+# Plate by Plate analysis of negative controls
+
+In crane I ran the DADA2 pipeline on plates individually. Here I'm going to make phyloseq objects and dig into what the negative controls look like for each plate. Based on this information we will decide which plates are useable and which are not.
+
+-[Joey711 phyloseq tutorial](https://joey711.github.io/phyloseq/import-data.html)
+
+## Fecal_pt1_and_DEQ plate 3: Fecal Samples
+
+```{r, eval = FALSE}
+##final phyloseq Object
+
+# loading in these files directly from their text files
+
+meta = read.csv("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\Fecal_pt1_and_DEQ_negFix.csv")
+row.names(meta) = meta$miseqID
+
+asv_tab = read.table("D:\\fish gut\\fecal_pt1_and_deq_plate3\\Analysis\\ASVs_counts.txt")
+colnames(asv_tab)
+dim(asv_tab)
+# need to name the samples without the X prefix Need to make sure I rename the colums correctly
+meta$miseqID[meta$miseqID >= 193]
+# creating a little dataframe to compare the col names to the sample names pulled from the meta data file.
+check = data.frame(asv_tab = colnames(asv_tab), meta = meta$miseqID[meta$miseqID >= 193])
+check$meta = as.character(check$meta)
+check$metaTransform = paste0("X", check$meta)
+# are all the sample names in the ASV_tab in the list of sample names pulled from the meta data frame? And are they all in exactly the same order?
+check$asv_tab %in% check$metaTransform
+check$asv_tab == check$metaTransform
+# rename the columns in the asv_tab.
+colnames(asv_tab) = meta$miseqID[meta$miseqID >= 193]
+# ASV table should be a matrix to go to phyloseq seamlessly.
+class(asv_tab)
+asv_tab = as.matrix(asv_tab)
+asv_tab[1:5 , 1:5]
+
+# Taxa table should be a character matrix to go to phyloseq seamlessly.
+asv_tax = read.delim("D:\\fish gut\\fecal_pt1_and_deq_plate3\\Analysis\\ASVs_taxonomy.txt")
+head(asv_tax)
+class(asv_tax)
+asv_tax = as.matrix(asv_tax)
+head(asv_tax)
+
+tree = read_tree("D:\\fish gut\\fecal_pt1_and_deq_plate3\\Analysis\\ASVs.phylip.tre")
+
+# There is a conflict with the `tax_table()` function when you have both phyloseq and MicrobiotaProcess loaded. I will need to specify which function I am refering to by calling `phyloseq::tax_table()`.
+ps_fecal_pt1_plate3 = phyloseq(otu_table(asv_tab, taxa_are_rows=TRUE),
+	                    sample_data(meta),
+			                   phyloseq::tax_table(asv_tax),
+			                   phy_tree(tree))
+
+save(ps_fecal_pt1_plate3, file= "ps_fecal_pt1_plate3.RData")
+
+```
+
+Load in phyloseq object
+
+```{r}
+load("ps_fecal_pt1_plate3.RData")
+```
+
+Reads in negatives vs reads in samples
+
+```{r}
+Fecal_pt1_and_DEQ = read.csv("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\Fecal_pt1_and_DEQ_negFix.csv")
+
+track_reads = read.csv("D:\\fish gut\\fecal_pt1_and_deq_plate3\\track_reads.csv")
+head(track_reads)
+row.names(track_reads) = track_reads$X
+head(track_reads)
+# head(Fecal_pt1_and_DEQ)
+
+negatives = Fecal_pt1_and_DEQ$miseqID[Fecal_pt1_and_DEQ$sample_or_control == "negative"]
+negatives = negatives[negatives >= 193]
+Fecal_pt1_and_DEQ[Fecal_pt1_and_DEQ$miseqID %in% negatives , 1:4]
+
+samples = Fecal_pt1_and_DEQ$miseqID[Fecal_pt1_and_DEQ$sample_or_control == "sample"]
+samples = samples[samples >= 193]
+# Fecal_pt1_and_DEQ[Fecal_pt1_and_DEQ$miseqID %in% samples, ]
+
+negatives
+samples
+
+negative_data = track_reads[track_reads$X %in% negatives , ]
+negative_data
+sample_data = track_reads[track_reads$X %in% samples , ]
+
+# compare average reads at input (before all processing)
+mean(negative_data$input)
+sd(negative_data$input)
+
+mean(sample_data$input)
+sd(sample_data$input)
+
+mean(negative_data$input) / mean(sample_data$input)
+
+boxplot(negative_data$input, sample_data$input, names = c("negatives", "samples"), main = "Input Reads: Run 1 Plate 3")
+
+# compare average reads at nochim (at end of DADA2 pipeline)
+mean(negative_data$nonchim)
+sd(negative_data$nonchim)
+
+mean(sample_data$nonchim)
+sd(sample_data$nonchim)
+
+mean(negative_data$nonchim) / mean(sample_data$nonchim)
+
+boxplot(negative_data$nonchim, sample_data$nonchim, names=c("negatives", "samples"), main = "End Reads: Run 1 Plate 3")
+
+# alpha diversity between the two
+# names(ps_fecal_pt1_plate3@sam_data)
+plot_richness(ps_fecal_pt1_plate3, x="sample_or_control", color="sample_or_control", measures=c("Observed"))
+
+# Beta diversity between the samples and negative controls
+# this function is in MicrobiotaProcess
+pcoares <- get_pcoa(obj=ps_fecal_pt1_plate3, distmethod="bray", method="hellinger")
+
+pcoaplot1 <- ggordpoint(obj=pcoares, biplot=TRUE, speciesannot=TRUE,
+                        factorNames=c("sample_or_control"), ellipse=TRUE) +
+  scale_color_manual(values=c("#00AED7", "#FD9347")) +
+  scale_fill_manual(values=c("#00AED7", "#FD9347"))
+# first and third principal co-ordinates
+pcoaplot2 <- ggordpoint(obj=pcoares, pc=c(1, 3), biplot=TRUE, speciesannot=TRUE,
+                        factorNames=c("sample_or_control"), ellipse=TRUE) +
+  scale_color_manual(values=c("#00AED7", "#FD9347")) +
+  scale_fill_manual(values=c("#00AED7", "#FD9347"))
+pcoa <- pcoaplot1 | pcoaplot2
+pcoa
+```
+
+This plate looks very good! These data don't match the data I found in my previous look. I wonder if there is an issue with my renaming system and if I misidentified the negative controls previously....
+
+## Fecal_pt2_and_DEQ Plate 3: Fecal Samples
+
+```{r, eval = FALSE}
+##final phyloseq Object
+
+# loading in these files directly from their text files
+
+meta = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\Fecal-pt2_and-DEQ\\fecalpt2-and-DEQ_edit_miseq.txt")
+row.names(meta) = meta$X
+
+asv_tab = read.table("D:\\fish gut\\fecal_pt2_and_deq_plate3\\Analysis\\ASVs_counts.txt")
+colnames(asv_tab)
+dim(asv_tab)
+# need to name the samples without the X prefix Need to make sure I rename the colums correctly
+meta$X[(meta$X >= 193) & (meta$X <= 288)]
+# creating a little dataframe to compare the col names to the sample names pulled from the meta data file.
+check = data.frame(asv_tab = colnames(asv_tab), meta = meta$X[(meta$X >= 193) & (meta$X <= 288)])
+check$meta = as.character(check$meta)
+check$metaTransform = paste0("X", check$meta)
+# are all the sample names in the ASV_tab in the list of sample names pulled from the meta data frame? And are they all in exactly the same order?
+check$asv_tab %in% check$metaTransform
+check$asv_tab == check$metaTransform
+# there is a discrepancy at index 29: Refer to code chuck "Moving and renaming second sequencing run fastq files" to learn that sample 221 has no mapping file info and sample 222 has no corresponding fastq file. Remove 221 from asv_tab and remove 222 from the mapping file.
+sample221 = "X221"
+asv_tab = asv_tab[ , colnames(asv_tab) != sample221]
+meta = meta[meta$X != 222 , ]
+# Updating check data frame
+check = data.frame(asv_tab = colnames(asv_tab), meta = meta$X[(meta$X >= 193) & (meta$X <= 288)])
+check$meta = as.character(check$meta)
+check$metaTransform = paste0("X", check$meta)
+# are all the sample names in the ASV_tab in the list of sample names pulled from the meta data frame? And are they all in exactly the same order?
+check$asv_tab %in% check$metaTransform
+check$asv_tab == check$metaTransform
+
+# rename the columns in the asv_tab.
+colnames(asv_tab) = meta$X[(meta$X >= 193) & (meta$X <= 288)]
+# ASV table should be a matrix to go to phyloseq seamlessly.
+class(asv_tab)
+asv_tab = as.matrix(asv_tab)
+asv_tab[1:5 , 1:5]
+
+# Taxa table should be a character matrix to go to phyloseq seamlessly.
+asv_tax = read.delim("D:\\fish gut\\fecal_pt2_and_deq_plate3\\Analysis\\ASVs_taxonomy.txt")
+head(asv_tax)
+class(asv_tax)
+asv_tax = as.matrix(asv_tax)
+head(asv_tax)
+
+tree = read_tree("D:\\fish gut\\fecal_pt2_and_deq_plate3\\Analysis\\ASVs.phylip.tre")
+
+# There is a conflict with the `tax_table()` function when you have both phyloseq and MicrobiotaProcess loaded. I will need to specify which function I am refering to by calling `phyloseq::tax_table()`.
+ps_fecal_pt2_plate3 = phyloseq(otu_table(asv_tab, taxa_are_rows=TRUE))#nochimeras
+ps_fecal_pt2_plate3 = merge_phyloseq(ps_fecal_pt2_plate3, sample_data(meta))
+ps_fecal_pt2_plate3 = merge_phyloseq(ps_fecal_pt2_plate3, phyloseq::tax_table(asv_tax))
+ps_fecal_pt2_plate3 = merge_phyloseq(ps_fecal_pt2_plate3, phy_tree(tree))
+
+save(ps_fecal_pt2_plate3, file= "ps_fecal_pt2_plate3.RData")
+
+```
+
+```{r}
+load("ps_fecal_pt2_plate3.RData")
+```
+
+Reads in negatives vs reads in samples
+
+```{r}
+Fecal_pt2_and_DEQ = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\Fecal-pt2_and-DEQ\\fecalpt2-and-DEQ_edit_miseq.txt")
+
+track_reads = read.csv("D:\\fish gut\\fecal_pt2_and_deq_plate3\\track_reads.csv")
+head(track_reads)
+row.names(track_reads) = track_reads$X
+head(track_reads)
+# head(Fecal_pt2_and_DEQ)
+
+negatives = Fecal_pt2_and_DEQ$X[Fecal_pt2_and_DEQ$sample_or_control == "negative"]
+negatives = negatives[(negatives >= 193) & (negatives <= 288)]
+Fecal_pt2_and_DEQ[Fecal_pt2_and_DEQ$X %in% negatives , 1:4]
+
+samples = Fecal_pt2_and_DEQ$X[Fecal_pt2_and_DEQ$sample_or_control == "sample"]
+samples = samples[(samples >= 193) & (samples <= 288)]
+# Fecal_pt2_and_DEQ[Fecal_pt2_and_DEQ$X %in% samples, ]
+
+negatives
+samples
+
+negative_data = track_reads[track_reads$X %in% negatives , ]
+negative_data
+sample_data = track_reads[track_reads$X %in% samples , ]
+
+# compare average reads at input (before all processing)
+mean(negative_data$input)
+sd(negative_data$input)
+
+mean(sample_data$input)
+sd(sample_data$input)
+
+mean(negative_data$input) / mean(sample_data$input)
+
+boxplot(negative_data$input, sample_data$input, names = c("negatives", "samples"), main = "Input Reads: Run 1 Plate 3")
+
+# compare average reads at nochim (at end of DADA2 pipeline)
+mean(negative_data$nonchim)
+sd(negative_data$nonchim)
+
+mean(sample_data$nonchim)
+sd(sample_data$nonchim)
+
+mean(negative_data$nonchim) / mean(sample_data$nonchim)
+
+boxplot(negative_data$nonchim, sample_data$nonchim, names=c("negatives", "samples"), main = "End Reads: Run 1 Plate 3")
+
+# alpha diversity between the two
+# names(ps_fecal_pt2_plate3@sam_data)
+
+plot_richness(ps_fecal_pt2_plate3, x="sample_or_control", color="sample_or_control", measures=c("Observed"))
+
+# Beta diversity between the samples and negative controls
+# this function is in MicrobiotaProcess
+pcoares <- get_pcoa(obj=ps_fecal_pt2_plate3, distmethod="bray", method="hellinger")
+
+pcoaplot1 <- ggordpoint(obj=pcoares, biplot=TRUE, speciesannot=TRUE,
+                        factorNames=c("sample_or_control"), ellipse=TRUE) +
+  scale_color_manual(values=c("#00AED7", "#FD9347")) +
+  scale_fill_manual(values=c("#00AED7", "#FD9347"))
+# first and third principal co-ordinates
+pcoaplot2 <- ggordpoint(obj=pcoares, pc=c(1, 3), biplot=TRUE, speciesannot=TRUE,
+                        factorNames=c("sample_or_control"), ellipse=TRUE) +
+  scale_color_manual(values=c("#00AED7", "#FD9347")) +
+  scale_fill_manual(values=c("#00AED7", "#FD9347"))
+pcoa <- pcoaplot1 | pcoaplot2
+pcoa
+```
+
+## Fecal_pt2_and_DEQ Plate 4: Fecal and DEQ samples
+
+```{r, eval = FALSE}
+##final phyloseq Object
+
+# loading in these files directly from their text files
+
+meta = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\Fecal-pt2_and-DEQ\\fecalpt2-and-DEQ_edit_miseq.txt")
+row.names(meta) = meta$X
+
+asv_tab = read.table("D:\\fish gut\\fecal_pt2_and_deq_plate4\\Analysis\\ASVs_counts.txt")
+colnames(asv_tab)
+dim(asv_tab)
+# need to name the samples without the X prefix Need to make sure I rename the colums correctly
+meta$X[meta$X >= 289]
+# creating a little dataframe to compare the col names to the sample names pulled from the meta data file.
+check = data.frame(asv_tab = colnames(asv_tab), meta = meta$X[meta$X >= 289])
+check$meta = as.character(check$meta)
+check$metaTransform = paste0("X", check$meta)
+# are all the sample names in the ASV_tab in the list of sample names pulled from the meta data frame? And are they all in exactly the same order?
+check$asv_tab %in% check$metaTransform
+check$asv_tab == check$metaTransform
+# rename the columns in the asv_tab.
+colnames(asv_tab) = meta$X[meta$X >= 289]
+# ASV table should be a matrix to go to phyloseq seamlessly.
+class(asv_tab)
+asv_tab = as.matrix(asv_tab)
+asv_tab[1:5 , 1:5]
+
+# Taxa table should be a character matrix to go to phyloseq seamlessly.
+asv_tax = read.delim("D:\\fish gut\\fecal_pt2_and_deq_plate4\\Analysis\\ASVs_taxonomy.txt")
+head(asv_tax)
+class(asv_tax)
+asv_tax = as.matrix(asv_tax)
+head(asv_tax)
+
+tree = read_tree("D:\\fish gut\\fecal_pt2_and_deq_plate4\\Analysis\\ASVs.phylip.tre")
+
+# There is a conflict with the `tax_table()` function when you have both phyloseq and MicrobiotaProcess loaded. I will need to specify which function I am refering to by calling `phyloseq::tax_table()`.
+ps_fecal_pt2_plate4 = phyloseq(otu_table(asv_tab, taxa_are_rows=TRUE))#nochimeras
+ps_fecal_pt2_plate4 = merge_phyloseq(ps_fecal_pt2_plate4, sample_data(meta))
+ps_fecal_pt2_plate4 = merge_phyloseq(ps_fecal_pt2_plate4, phyloseq::tax_table(asv_tax))
+ps_fecal_pt2_plate4 = merge_phyloseq(ps_fecal_pt2_plate4, phy_tree(tree))
+
+save(ps_fecal_pt2_plate4, file= "ps_fecal_pt2_plate4.RData")
+
+```
+
+```{r}
+load("ps_fecal_pt2_plate4.RData")
+```
+
+Reads in negatives vs reads in samples
+
+```{r}
+Fecal_pt2_and_DEQ = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\Fecal-pt2_and-DEQ\\fecalpt2-and-DEQ_edit_miseq.txt")
+
+track_reads = read.csv("D:\\fish gut\\fecal_pt2_and_deq_plate4\\track_reads.csv")
+head(track_reads)
+row.names(track_reads) = track_reads$X
+head(track_reads)
+# head(Fecal_pt2_and_DEQ)
+
+negatives = Fecal_pt2_and_DEQ$X[Fecal_pt2_and_DEQ$sample_or_control == "negative"]
+negatives = negatives[negatives >= 289]
+Fecal_pt2_and_DEQ[Fecal_pt2_and_DEQ$X %in% negatives , 1:4]
+
+samples = Fecal_pt2_and_DEQ$X[Fecal_pt2_and_DEQ$sample_or_control == "sample"]
+samples = samples[samples >= 289]
+# Fecal_pt2_and_DEQ[Fecal_pt2_and_DEQ$X %in% samples, ]
+
+negatives
+samples
+
+negative_data = track_reads[track_reads$X %in% negatives , ]
+negative_data
+sample_data = track_reads[track_reads$X %in% samples , ]
+
+# compare average reads at input (before all processing)
+mean(negative_data$input)
+sd(negative_data$input)
+
+mean(sample_data$input)
+sd(sample_data$input)
+
+mean(negative_data$input) / mean(sample_data$input)
+
+boxplot(negative_data$input, sample_data$input, names = c("negatives", "samples"), main = "Input Reads: Run 1 Plate 3")
+
+# compare average reads at nochim (at end of DADA2 pipeline)
+mean(negative_data$nonchim)
+sd(negative_data$nonchim)
+
+mean(sample_data$nonchim)
+sd(sample_data$nonchim)
+
+mean(negative_data$nonchim) / mean(sample_data$nonchim)
+
+boxplot(negative_data$nonchim, sample_data$nonchim, names=c("negatives", "samples"), main = "End Reads: Run 1 Plate 3")
+
+# alpha diversity between the two
+# names(ps_fecal_pt2_plate4@sam_data)
+
+plot_richness(ps_fecal_pt2_plate4, x="sample_or_control", color="sample_or_control", measures=c("Observed"))
+
+# Beta diversity between the samples and negative controls
+# this function is in MicrobiotaProcess
+pcoares <- get_pcoa(obj=ps_fecal_pt2_plate4, distmethod="bray", method="hellinger")
+
+pcoaplot1 <- ggordpoint(obj=pcoares, biplot=TRUE, speciesannot=TRUE,
+                        factorNames=c("sample_or_control"), ellipse=TRUE) +
+  scale_color_manual(values=c("#00AED7", "#FD9347")) +
+  scale_fill_manual(values=c("#00AED7", "#FD9347"))
+# first and third principal co-ordinates
+pcoaplot2 <- ggordpoint(obj=pcoares, pc=c(1, 3), biplot=TRUE, speciesannot=TRUE,
+                        factorNames=c("sample_or_control"), ellipse=TRUE) +
+  scale_color_manual(values=c("#00AED7", "#FD9347")) +
+  scale_fill_manual(values=c("#00AED7", "#FD9347"))
+pcoa <- pcoaplot1 | pcoaplot2
+pcoa
+```
+
+## PlatteMicrobe_DEQ_REDOS plate 1: Water Samples
+
+```{r, eval = FALSE}
+##final phyloseq Object
+
+# loading in these files directly from their text files
+
+meta = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\PlatteMicrobe_DEQ_Redos\\plattemicrobe_deq_redos_edit_MISEQ.txt")
+row.names(meta) = meta$X
+
+asv_tab = read.table("D:\\fish gut\\platteMicrobe_plate1\\Analysis\\ASVs_counts.txt")
+colnames(asv_tab)
+dim(asv_tab)
+# need to name the samples without the X prefix Need to make sure I rename the colums correctly
+meta$X[meta$X <= 96]
+# creating a little dataframe to compare the col names to the sample names pulled from the meta data file.
+check = data.frame(asv_tab = colnames(asv_tab), meta = meta$X[meta$X <= 96])
+check$meta = as.character(check$meta)
+check$metaTransform = paste0("X", check$meta)
+# are all the sample names in the ASV_tab in the list of sample names pulled from the meta data frame? And are they all in exactly the same order?
+check$asv_tab %in% check$metaTransform
+check$asv_tab == check$metaTransform
+# The samples are in a different order in the asv_tab than they are in the mapping files
+# reorder the columns in the ASV table to match the mapping file.
+head(asv_tab[ , check$metaTransform[1:10]])
+asv_tab = asv_tab[ , check$metaTransform]
+# see if that worked
+check$asv_tab = colnames(asv_tab)
+check$asv_tab %in% check$metaTransform
+check$asv_tab == check$metaTransform
+# rename the columns in the asv_tab.
+colnames(asv_tab) = meta$X[meta$X <= 96]
+# ASV table should be a matrix to go to phyloseq seamlessly.
+class(asv_tab)
+asv_tab = as.matrix(asv_tab)
+asv_tab[1:5 , 1:5]
+
+# Taxa table should be a character matrix to go to phyloseq seamlessly.
+asv_tax = read.delim("D:\\fish gut\\platteMicrobe_plate1\\Analysis\\ASVs_taxonomy.txt")
+head(asv_tax)
+class(asv_tax)
+asv_tax = as.matrix(asv_tax)
+head(asv_tax)
+
+tree = read_tree("D:\\fish gut\\platteMicrobe_plate1\\Analysis\\ASVs.phylip.tre")
+
+# There is a conflict with the `tax_table()` function when you have both phyloseq and MicrobiotaProcess loaded. I will need to specify which function I am refering to by calling `phyloseq::tax_table()`.
+PlatteMicrobe_plate1 = phyloseq(otu_table(asv_tab, taxa_are_rows=TRUE))#nochimeras
+PlatteMicrobe_plate1= merge_phyloseq(PlatteMicrobe_plate1, sample_data(meta))
+PlatteMicrobe_plate1 = merge_phyloseq(PlatteMicrobe_plate1, phyloseq::tax_table(asv_tax))
+PlatteMicrobe_plate1 = merge_phyloseq(PlatteMicrobe_plate1, phy_tree(tree))
+
+save(PlatteMicrobe_plate1, file= "PlatteMicrobe_plate1.RData")
+
+```
+
+```{r}
+load("PlatteMicrobe_plate1.RData")
+```
+
+Reads in negatives vs reads in samples
+
+```{r}
+PlatteMicrobe_DEQ_Redos = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\PlatteMicrobe_DEQ_Redos\\plattemicrobe_deq_redos_edit_MISEQ.txt")
+
+track_reads = read.csv("D:\\fish gut\\platteMicrobe_plate1\\track_reads.csv")
+head(track_reads)
+row.names(track_reads) = track_reads$X
+head(track_reads)
+# head(PlatteMicrobe_DEQ_Redos)
+
+negatives = PlatteMicrobe_DEQ_Redos$X[PlatteMicrobe_DEQ_Redos$sample_or_control == "negative"]
+negatives = negatives[negatives <= 96]
+PlatteMicrobe_DEQ_Redos[PlatteMicrobe_DEQ_Redos$X %in% negatives , 1:4]
+
+samples = PlatteMicrobe_DEQ_Redos$X[PlatteMicrobe_DEQ_Redos$sample_or_control == "sample"]
+samples = samples[samples <= 96]
+# PlatteMicrobe_DEQ_Redos[PlatteMicrobe_DEQ_Redos$X %in% samples, ]
+
+negatives
+samples
+
+negative_data = track_reads[track_reads$X %in% negatives , ]
+negative_data
+sample_data = track_reads[track_reads$X %in% samples , ]
+
+# compare average reads at input (before all processing)
+mean(negative_data$input)
+sd(negative_data$input)
+
+mean(sample_data$input)
+sd(sample_data$input)
+
+mean(negative_data$input) / mean(sample_data$input)
+
+boxplot(negative_data$input, sample_data$input, names = c("negatives", "samples"), main = "Input Reads: Run 1 Plate 3")
+
+# compare average reads at nochim (at end of DADA2 pipeline)
+mean(negative_data$nonchim)
+sd(negative_data$nonchim)
+
+mean(sample_data$nonchim)
+sd(sample_data$nonchim)
+
+mean(negative_data$nonchim) / mean(sample_data$nonchim)
+
+boxplot(negative_data$nonchim, sample_data$nonchim, names=c("negatives", "samples"), main = "End Reads: Run 1 Plate 3")
+
+# alpha diversity between the two
+# names(PlatteMicrobe_plate1@sam_data)
+
+plot_richness(PlatteMicrobe_plate1, x="sample_or_control", color="sample_or_control", measures=c("Observed"))
+
+# Beta diversity between the samples and negative controls
+# this function is in MicrobiotaProcess
+pcoares <- get_pcoa(obj=PlatteMicrobe_plate1, distmethod="bray", method="hellinger")
+
+pcoaplot1 <- ggordpoint(obj=pcoares, biplot=TRUE, speciesannot=TRUE,
+                        factorNames=c("sample_or_control"), ellipse=TRUE) +
+  scale_color_manual(values=c("#00AED7", "#FD9347")) +
+  scale_fill_manual(values=c("#00AED7", "#FD9347"))
+# first and third principal co-ordinates
+pcoaplot2 <- ggordpoint(obj=pcoares, pc=c(1, 3), biplot=TRUE, speciesannot=TRUE,
+                        factorNames=c("sample_or_control"), ellipse=TRUE) +
+  scale_color_manual(values=c("#00AED7", "#FD9347")) +
+  scale_fill_manual(values=c("#00AED7", "#FD9347"))
+pcoa <- pcoaplot1 | pcoaplot2
+pcoa
+```
+
+## PlatteMicrobe_DEQ_REDOS Plate 4: DEQ and a few Fecal Samples
+
+```{r, eval = FALSE}
+##final phyloseq Object
+
+# loading in these files directly from their text files
+
+meta = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\PlatteMicrobe_DEQ_Redos\\plattemicrobe_deq_redos_edit_MISEQ.txt")
+row.names(meta) = meta$X
+
+asv_tab = read.table("D:\\fish gut\\platteMicrobe_plate4\\Analysis\\ASVs_counts.txt")
+colnames(asv_tab)
+# need to name the samples without the X prefix Need to make sure I rename the columns correctly
+meta$X[meta$X >= 289]
+# there is one more sample in the meta file than in the asv_tab: meaning one sample in the mapping file did not have a fastq file. Referring to the code chunk "Moving and renaming third sequencing run fastq files" I learned that in this sequencing run there is a line in the mapping file for sample 356 but there is no corresponding fastq file. I need to remove this line from the meta file before moving on.
+dim(asv_tab)
+length(meta$X[meta$X >= 289])
+meta = meta[meta$X != 356, ]
+# creating a little dataframe to compare the col names to the sample names pulled from the meta data file.
+check = data.frame(asv_tab = colnames(asv_tab), meta = meta$X[meta$X >= 289])
+check$meta = as.character(check$meta)
+check$metaTransform = paste0("X", check$meta)
+# are all the sample names in the ASV_tab in the list of sample names pulled from the meta data frame? And are they all in exactly the same order?
+check$asv_tab %in% check$metaTransform
+check$asv_tab == check$metaTransform
+
+# rename the columns in the asv_tab.
+colnames(asv_tab) = meta$X[meta$X >= 289]
+# ASV table should be a matrix to go to phyloseq seamlessly.
+class(asv_tab)
+asv_tab = as.matrix(asv_tab)
+asv_tab[1:5 , 1:5]
+
+# Taxa table should be a character matrix to go to phyloseq seamlessly.
+asv_tax = read.delim("D:\\fish gut\\platteMicrobe_plate4\\Analysis\\ASVs_taxonomy.txt")
+head(asv_tax)
+class(asv_tax)
+asv_tax = as.matrix(asv_tax)
+head(asv_tax)
+
+tree = read_tree("D:\\fish gut\\platteMicrobe_plate4\\Analysis\\ASVs.phylip.tre")
+
+# There is a conflict with the `tax_table()` function when you have both phyloseq and MicrobiotaProcess loaded. I will need to specify which function I am refering to by calling `phyloseq::tax_table()`.
+PlatteMicrobe_plate4 = phyloseq(otu_table(asv_tab, taxa_are_rows=TRUE))#nochimeras
+PlatteMicrobe_plate4= merge_phyloseq(PlatteMicrobe_plate4, sample_data(meta))
+PlatteMicrobe_plate4 = merge_phyloseq(PlatteMicrobe_plate4, phyloseq::tax_table(asv_tax))
+PlatteMicrobe_plate4 = merge_phyloseq(PlatteMicrobe_plate4, phy_tree(tree))
+
+save(PlatteMicrobe_plate4, file= "PlatteMicrobe_plate4.RData")
+
+```
+
+```{r}
+load("PlatteMicrobe_plate4.RData")
+```
+
+Reads in negatives vs reads in samples
+
+```{r}
+PlatteMicrobe_DEQ_Redos = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\PlatteMicrobe_DEQ_Redos\\plattemicrobe_deq_redos_edit_MISEQ.txt")
+
+track_reads = read.csv("D:\\fish gut\\platteMicrobe_plate4\\track_reads.csv")
+head(track_reads)
+row.names(track_reads) = track_reads$X
+head(track_reads)
+# head(PlatteMicrobe_DEQ_Redos)
+
+negatives = PlatteMicrobe_DEQ_Redos$X[PlatteMicrobe_DEQ_Redos$sample_or_control == "negative"]
+negatives = negatives[negatives >= 289]
+PlatteMicrobe_DEQ_Redos[PlatteMicrobe_DEQ_Redos$X %in% negatives , 1:4]
+
+samples = PlatteMicrobe_DEQ_Redos$X[PlatteMicrobe_DEQ_Redos$sample_or_control == "sample"]
+samples = samples[samples >= 289]
+# PlatteMicrobe_DEQ_Redos[PlatteMicrobe_DEQ_Redos$X %in% samples, ]
+
+negatives
+samples
+
+negative_data = track_reads[track_reads$X %in% negatives , ]
+negative_data
+sample_data = track_reads[track_reads$X %in% samples , ]
+
+# compare average reads at input (before all processing)
+mean(negative_data$input)
+sd(negative_data$input)
+
+mean(sample_data$input)
+sd(sample_data$input)
+
+mean(negative_data$input) / mean(sample_data$input)
+
+boxplot(negative_data$input, sample_data$input, names = c("negatives", "samples"), main = "Input Reads: Run 1 Plate 3")
+
+# compare average reads at nochim (at end of DADA2 pipeline)
+mean(negative_data$nonchim)
+sd(negative_data$nonchim)
+
+mean(sample_data$nonchim)
+sd(sample_data$nonchim)
+
+mean(negative_data$nonchim) / mean(sample_data$nonchim)
+
+boxplot(negative_data$nonchim, sample_data$nonchim, names=c("negatives", "samples"), main = "End Reads: Run 1 Plate 3")
+
+# alpha diversity between the two
+# names(PlatteMicrobe_plate4@sam_data)
+
+plot_richness(PlatteMicrobe_plate4, x="sample_or_control", color="sample_or_control", measures=c("Observed"))
+
+# Beta diversity between the samples and negative controls
+# this function is in MicrobiotaProcess
+
+
+# there are no NA values in the OTU table.
+any(is.na(PlatteMicrobe_plate4@otu_table))
+# All ASVs have atleast 1 read across the samples in plate 4.
+keep = rowSums(PlatteMicrobe_plate4@otu_table) > 0
+any(isFALSE(keep))
+
+# # POSSIBLY NOT WORKING
+# pcoares <- get_pcoa(obj=PlatteMicrobe_plate4, distmethod="bray", method="hellinger")
+# 
+# pcoaplot1 <- ggordpoint(obj=pcoares, biplot=TRUE, speciesannot=TRUE,
+#                         factorNames=c("sample_or_control"), ellipse=TRUE) +
+#   scale_color_manual(values=c("#00AED7", "#FD9347")) +
+#   scale_fill_manual(values=c("#00AED7", "#FD9347"))
+# # first and third principal co-ordinates
+# pcoaplot2 <- ggordpoint(obj=pcoares, pc=c(1, 3), biplot=TRUE, speciesannot=TRUE,
+#                         factorNames=c("sample_or_control"), ellipse=TRUE) +
+#   scale_color_manual(values=c("#00AED7", "#FD9347")) +
+#   scale_fill_manual(values=c("#00AED7", "#FD9347"))
+# pcoa <- pcoaplot1 | pcoaplot2
+# pcoa
+```
+
+## Conclusions
+
+We have decided to move forward with only two plates.
+
+- Fecal_pt1_and_DEQ plate 3: Fecal Samples
+- PlatteMicrobe_DEQ_REDOS plate 1: Water Samples
+
+
+
