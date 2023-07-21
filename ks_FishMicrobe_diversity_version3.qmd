@@ -1,0 +1,3702 @@
+---
+title: "FishMicrobiome Alpha and Beta Diversity"
+date: last-modified
+author: 
+  - "Krista Starr"
+  - "Federica Montesanto"
+title-block-banner: "#3B3C3A"
+format:
+  html:
+    theme: journal
+    code-fold: true
+    toc: true
+    toc-location: left
+    number-sections: true
+# bibliography: diversity_bib.bib
+# link-citations: yes
+# csl: transactions-of-the-american-fisheries-society.csl
+editor: source
+---
+
+In this file, I will asses variations in microbial alpha and beta diversity by river location and fish species.
+
+# Setup
+
+To begin load libraries and bring in the phyloseq object created in `FishMicrobeAnalysis2.qmd`.
+
+```{r load_libraries}
+#| code-fold: false
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library("phyloseq")
+library("sf")
+library("ggmap")
+library("MicrobiotaProcess")
+library("vegan")
+library("file2meco")
+library("microeco")
+library("pheatmap")
+library("dunn.test")
+library("tidyverse")
+library("lubridate")
+library("grid")
+library("ggpubr")
+library("ggvenn")
+library(DESeq2)
+```
+
+```{r load_phyloseq}
+#| code-fold: false
+
+ps_final_analyze = readRDS("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\ps_final_analyze.rds")
+```
+
+Fixing some data entry errors I noticed by mapping the coordinates. Some stations/fish listed as nloup are actually from the mloup river.
+
+```{r}
+# There is a station called "southstpaul" on 6/24/2019 water and fish fecal samples were collected. On this day the river was labeled "nloup" but the coordinates are actually in the mloup river.
+ps_final_analyze@sam_data[ps_final_analyze@sam_data$station == "southstpaul",]$river = "mloup"
+
+
+# Sample 111-7 is fecal but does not have a species identification. I will remove it from the data set.
+ps_final_analyze = prune_samples(ps_final_analyze@sam_data$sampleID != "111-7", ps_final_analyze)
+```
+
+I'm also going to write the sample data included in the phyloseq object to it's own environment object so I can access it easier to plan my analysis.
+
+```{r write_metadata}
+#| code-fold: false
+ps_total = ps_final_analyze
+meta = ps_final_analyze@sam_data
+```
+
+## Keep only water samples associated with fish samples, and only fish samples with associated water samples
+
+```{r remove_irrelevant_water_data}
+#| warning: false
+#| message: false
+
+# Make a phyloseq object that keeps all water samples that have a fecal sample on the same day in the same river.
+ps_final_analyze = prune_samples((meta$sampleType == "fecal") | ((meta$sampleType == "water") & (meta$fieldDate %in% meta$fieldDate[meta$sampleType == "fecal"]) & (meta$river %in% meta$river[meta$sampleType == "fecal"])), ps_final_analyze)
+
+meta = ps_final_analyze@sam_data
+
+# make the phyloseq object that only keeps fecal samples that have a water sample from the same river on the same day.
+ps_final_analyze = prune_samples((meta$sampleType == "water") | ((meta$sampleType == "fecal") & (meta$river %in% meta$river[meta$sampleType == "water"]) & (meta$fieldDate %in% meta$fieldDate[meta$sampleType == "water"])), ps_final_analyze)
+
+meta = ps_final_analyze@sam_data
+
+ps_final_analyze
+
+
+# The above filtering worked pretty well but it leaves a few special cases that I will address more specifically.
+## Remove water sample from station "sumnerroad" on 7/25/2019. - no fish were collected here on this day.
+ps_final_analyze = prune_samples(ps_final_analyze@sam_data$station != "sumnerroad", ps_final_analyze)
+
+## Remove water sample from station "emmet" on 7/2/2019. - no fish were colleted here on this day.
+ps_final_analyze = prune_samples(ps_final_analyze@sam_data$station != "emmet", ps_final_analyze)
+
+## Station "northmiller" has the same coordinates as station "hwy183". Changing to use only 1 station name.
+ps_final_analyze@sam_data[ps_final_analyze@sam_data$station == "northmiller",]$station = "hwy183"
+
+## Station "northMiller" has the same coordinates as station "hwy183". Changing to use only 1 station name.
+ps_final_analyze@sam_data[ps_final_analyze@sam_data$station == "northMiller",]$station = "hwy183"
+
+## Remove fish samples from station "ewig" on 7/2/2019. - no associated water sample
+### This removes 4 red shiners and 1 sand shiner
+ps_final_analyze@sam_data[ps_final_analyze@sam_data$station == "ewing",]
+ps_final_analyze = prune_samples(ps_final_analyze@sam_data$station != "ewing", ps_final_analyze)
+
+## Remove fish samples from station "sartoria" on 6/24/2019. - no associated water sample.
+ps_final_analyze = prune_samples(!(ps_final_analyze@sam_data$station == "sartoria" & ps_final_analyze@sam_data$fieldDate == "6/24/2019"), ps_final_analyze)
+
+
+# Since I removed samples it is possible the data now has ASVs that are not found in any sample. I will remove these
+ps_final_analyze <- prune_species(speciesSums(ps_final_analyze) > 0, ps_final_analyze)
+ps_final_analyze
+
+ps_paired_data = ps_final_analyze
+
+rm(ps_final_analyze)
+# saveRDS(ps_paired_data, "ps_paired_data.rds")
+```
+
+# Created transformed data sets
+
+## Proportional Abundance
+
+Transform the data from raw read count to the proportional abundance. This allows for comparison between samples of various read depths. Proportional abundance data will be used for Beta diversity metrics.
+
+```{r relative_abund_set}
+#| warning: false
+#| code-fold: false
+
+ps_norm <-  transform_sample_counts(ps_paired_data, function(x) x / sum(x) )
+ps_norm@otu_table[1:6 , 1:6]
+```
+
+## Create rarefied data set
+
+Use rarefaction to normalize all the samples to a consistent size.
+
+```{r rarefied_set}
+#| warning: false
+#| code-fold: false
+
+set.seed(1234) #ensure results are the same 
+ps_rarefy <- rarefy_even_depth(ps_paired_data, sample.size = min(sample_sums(ps_paired_data)),
+                               rngseed = T, replace = TRUE, trimOTUs = TRUE, verbose = TRUE)
+head(sample_sums(ps_rarefy))
+```
+
+## Data Subsets
+
+```{r data_subsets}
+#| message: false
+#| warning: false
+
+# relative abund of ps_total which is all samples regarldess of if they have a pair of water-fecal samples
+ps_total_norm <-  transform_sample_counts(ps_total, function(x) x / sum(x) )
+ps_total_norm@otu_table[1:6 , 1:6]
+
+```
+
+# Map and General Info
+
+```{r make_map}
+#| echo: false
+#| output: false
+
+# Here is the code to make all the data in the map below.
+
+# Get NE outline shape file
+us = read_sf("shape files\\cb_2018_us_state_5m\\cb_2018_us_state_5m.shp")
+head(us)
+# change crs
+us_4326 = st_transform(us, crs=4326)
+head(us_4326)
+# subset for only NE
+ne_4326 = filter(us_4326, NAME == "Nebraska")
+
+# Get ne rivers shape file
+rivers = read_sf("shape files\\Major_Streams\\HYDRO_MajorStream_DNR.shp")
+head(rivers)
+dim(rivers)
+# there is way too much detail in this rivers data. I'm going to subset it to only keep specific major rivers. Some of the data also extends beyond NE so I will filter it to only include data in NE.
+rivers_names = sort(unique(rivers$GNIS_Name))
+head(rivers_names)
+
+ne_only = filter(rivers, State == "NE")
+
+keep_rivers = c("Missouri River", "Platte River", "Logan Creek Dredge", "Elkhorn River", "Shell Creek", "Loup River", "Cedar River", "Calamus River", "North Loup River", "Middle Loup River", "Dismal River", "South Loup River",  "Wood River", "Lodgepole Creek", "North Platte River", "Little Blue River", "Niobrara River", "White River", "South Platte River", "Big Blue River", "Republican River", "Beaver Creek", "Medicine Creek", "Frenchman Creek")
+
+ne_only_sub = filter(ne_only, GNIS_Name %in% keep_rivers)
+
+# Now I just need to get the station coordinates
+stations = ps_paired_data@sam_data
+stations = stations[stations$sampleType == "water",]
+class(stations)
+stations = as.matrix(stations)
+stations = as.data.frame(stations)
+class(stations)
+
+stations = st_as_sf(stations, coords = c("longitude","latitude"), crs = 4326, remove = F)
+
+# get fish sample coordinates
+fish = ps_paired_data@sam_data
+fish = fish[fish$sampleType == "fecal",]
+class(fish)
+fish = as.matrix(fish)
+
+fish = as.data.frame(fish)
+class(fish)
+
+fish = st_as_sf(fish, coords = c("longitude","latitude"), crs = 4326, remove = F)
+```
+
+```{r plot_map}
+#| echo: false
+
+# And Plot!
+ggplot()+
+  geom_sf(data = ne_4326)+
+  geom_sf(data = ne_only_sub)+
+  geom_sf(data = stations, size = 2, aes(color = river))+
+  geom_sf(data = fish, alpha = .75, size = 1, color = "white") +
+  theme_classic()+
+  labs(title = "Stations Locations Across Nebraska")+
+  scale_colour_discrete("River") -> map
+map  
+
+# ggsave("figs/map.png",map, height = 5, width = 7, units = "in", dpi = 300)
+
+```
+
+::: callout-note
+## Map Data
+
+The map uses two publicly available shape files: `cb_2018_us_state_5m.shp` [@census2021] and `HYDRO_MajorStream_DNR.shp` [@nebraskamap2019]. This `sf` package [tutorial](https://learning.nceas.ucsb.edu/2019-11-RRCourse/spatial-vector-analysis-using-sf.html) was very helpful in creating the above map.
+:::
+
+# Alpha Diversity (entire data set)
+
+```{r}
+# Water samples have NA for commonName, change the NA to "water"
+ps_paired_data@sam_data$commonName[ps_paired_data@sam_data$sampleType == "water"] = "Water"
+```
+
+```{r KS_plot_aplha}
+#| warning: false
+
+# get diversity metrics
+alpha_enitre = estimate_richness(ps_paired_data, measures=c("Observed", "Shannon", "Simpson"))
+# Add a sampleID column
+alpha_enitre$sampleID = ps_paired_data@sam_data$sampleID
+# Change row names to be sampleID
+row.names(alpha_enitre) = ps_paired_data@sam_data$sampleID
+
+# merge with metadata by sampleID
+
+extrainfo = data.frame(sample_data(ps_paired_data))
+alpha_enitre = merge(alpha_enitre, extrainfo, by = "sampleID")
+
+alpha_enitre$obs_title = "Observed ASVs"
+# write.csv(alpha_enitre, file = "alphaMetrics_entire.csv", row.names=TRUE)
+
+
+# I only want to plot alpha diversity metrics for Water, Red shiner, and Sand shiner.
+keep = c("Water", "Red shiner", "Sand shiner")
+alpha_interest = alpha_enitre[alpha_enitre$commonName %in% keep , ]
+# write.csv(alpha_interest, file = "alphaMetrics_interest_samples.csv", row.names=TRUE)
+
+# Making my own figure with box plots instead of each point plotted
+ggplot(data = alpha_interest)+
+  geom_boxplot(aes(x = commonName,
+                   y = Observed))+
+  facet_grid(~ obs_title)+
+  theme_bw()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 90)) -> obs_bar
+
+alpha_interest$shann_title = "Shannon"
+
+ggplot(data = alpha_interest)+
+  geom_boxplot(aes(x = commonName,
+                   y = Shannon))+
+  facet_grid(~ shann_title)+
+  theme_bw()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 90)) -> shann_bar
+
+alpha_interest$simp_title = "Simpson"
+
+ggplot(data = alpha_interest)+
+  geom_boxplot(aes(x = commonName,
+                   y = Simpson))+
+  facet_grid(~ simp_title)+
+  theme_bw()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 90)) -> simp_bar
+
+
+ggarrange(obs_bar, shann_bar, simp_bar,
+          nrow = 1) +
+  labs(y = "Alpha Diversity Metric") -> entire_alpha_fig
+entire_alpha_fig
+
+# ggsave("figs/alpha_entire.png",entire_alpha_fig, height = 5, width = 7, units = "in", dpi = 300)
+```
+
+# Alpha Diversity (Rarefied data set)
+
+```{r}
+# Water samples have NA for commonName, change the NA to "water"
+ps_rarefy@sam_data$commonName[ps_rarefy@sam_data$sampleType == "water"] = "Water"
+```
+
+```{r KS_plot_aplha_rarefy}
+#| warning: false
+
+# get diversity metrics
+alpha_rarefy = estimate_richness(ps_rarefy, measures=c("Observed", "Shannon", "Simpson"))
+# Add a sampleID column
+alpha_rarefy$sampleID = ps_rarefy@sam_data$sampleID
+# Change row names to be sampleID
+row.names(alpha_rarefy) = ps_rarefy@sam_data$sampleID
+
+# merge with metadata by sampleID
+
+extrainfo = data.frame(sample_data(ps_rarefy))
+alpha_rarefy = merge(alpha_rarefy, extrainfo, by = "sampleID")
+
+
+# I only want to plot alpha diversity metrics for Water, Red shiner, and Sand shiner.
+keep = c("Water", "Red shiner", "Sand shiner")
+alpha_interest_rarefy = alpha_rarefy[alpha_rarefy$commonName %in% keep , ]
+
+
+# Making my own figure with box plots instead of each point plotted
+alpha_interest_rarefy$obs_title = "Observed ASVs"
+
+ggplot(data = alpha_interest_rarefy)+
+  geom_boxplot(aes(x = commonName,
+                   y = Observed))+
+  facet_grid(~ obs_title)+
+  theme_bw()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 90)) -> obs_bar
+
+alpha_interest_rarefy$shann_title = "Shannon"
+
+ggplot(data = alpha_interest_rarefy)+
+  geom_boxplot(aes(x = commonName,
+                   y = Shannon))+
+  facet_grid(~ shann_title)+
+  theme_bw()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 90)) -> shann_bar
+
+alpha_interest_rarefy$simp_title = "Simpson"
+
+ggplot(data = alpha_interest_rarefy)+
+  geom_boxplot(aes(x = commonName,
+                   y = Simpson))+
+  facet_grid(~ simp_title)+
+  theme_bw()+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 90)) -> simp_bar
+
+
+ggarrange(obs_bar, shann_bar, simp_bar,
+          nrow = 1)+
+  labs(y = "Alpha Diversity Metric") -> rare_alpha_fig
+rare_alpha_fig
+
+# ggsave("figs/alpha_rare.png",rare_alpha_fig, height = 5, width = 7, units = "in", dpi = 300)
+```
+
+# Entire vs Rarefy Results
+
+Checking for normal distribution of entire data set alpha diversity metrics through quick figures of the distribution and using the Shapiro-Wilk test. Table of Shapiro-Wilk test results for the entire data set alpha diversity metrics is below.
+
+```{r normality_check_entire}
+ggplot(data = alpha_interest) +
+  geom_density(aes(x = Observed, fill = commonName),
+               alpha = .3) +
+  theme(axis.title.y = element_blank())-> obs_dist
+
+ggplot(data = alpha_interest) +
+  geom_density(aes(x = Shannon, fill = commonName),
+               alpha = .3) +
+  theme(axis.title.y = element_blank()) -> shann_dist
+
+ggplot(data = alpha_interest) +
+  geom_density(aes(x = Simpson, fill = commonName),
+               alpha = .3) +
+  theme(axis.title.y = element_blank()) -> simp_dist
+
+ggarrange(obs_dist, shann_dist, simp_dist,
+          nrow = 1,
+          common.legend = TRUE) +
+  labs(y = "density")
+
+obs_entire_red = alpha_interest[alpha_interest[,"commonName"] == "Red shiner", "Observed"]
+obs_entire_sand = alpha_interest[alpha_interest[,"commonName"] == "Sand shiner", "Observed"]
+obs_entire_water = alpha_interest[alpha_interest[,"commonName"] == "Water", "Observed"]
+
+shann_entire_red = alpha_interest[alpha_interest[,"commonName"] == "Red shiner", "Shannon"]
+shann_entire_sand = alpha_interest[alpha_interest[,"commonName"] == "Sand shiner", "Shannon"]
+shann_entire_water = alpha_interest[alpha_interest[,"commonName"] == "Water", "Shannon"]
+
+simp_entire_red = alpha_interest[alpha_interest[,"commonName"] == "Red shiner", "Simpson"]
+simp_entire_sand = alpha_interest[alpha_interest[,"commonName"] == "Sand shiner", "Simpson"]
+simp_entire_water = alpha_interest[alpha_interest[,"commonName"] == "Water", "Simpson"]
+
+# do shapiro-wilk test
+shap_red_obs = shapiro.test(obs_entire_red)
+shap_sand_obs = shapiro.test(obs_entire_sand)
+shap_water_obs = shapiro.test(obs_entire_water)
+
+shap_red_shann = shapiro.test(shann_entire_red)
+shap_sand_shann = shapiro.test(shann_entire_sand)
+shap_water_shann = shapiro.test(shann_entire_water)
+
+shap_red_simp = shapiro.test(simp_entire_red)
+shap_sand_simp = shapiro.test(simp_entire_sand)
+shap_water_simp = shapiro.test(simp_entire_water)
+
+# str(shap_red_obs)
+# shap_red_obs$p.value
+# shap_red_obs$statistic
+
+tibble(metric = c("Observed", "Shannon", "Simpson"),
+       red_shiner = c(shap_red_obs$p.value, shap_red_shann$p.value, shap_red_simp$p.value),
+       sand_shiner = c(shap_sand_obs$p.value, shap_sand_shann$p.value, shap_sand_simp$p.value),
+       water = c(shap_water_obs$p.value, shap_water_shann$p.value, shap_water_simp$p.value)) |> 
+  mutate(red_shiner = round(red_shiner, digits = 6),
+         sand_shiner = round(sand_shiner, digits = 6),
+         water = round(water, digits = 6)) -> entire_dist_test
+
+entire_dist_test
+```
+
+Checking for normal distribution of rarefied data set alpha diversity metrics through quick figures of the distribution and using the Shapiro-Wilk test. Table of Shapiro-Wilk test results for the rarefied data set alpha diversity metrics found below.
+
+```{r normality_check_rarefy}
+ggplot(data = alpha_interest_rarefy) +
+  geom_density(aes(x = Observed, fill = commonName),
+               alpha = .3) +
+  theme(axis.title.y = element_blank())-> obs_dist
+
+ggplot(data = alpha_interest_rarefy) +
+  geom_density(aes(x = Shannon, fill = commonName),
+               alpha = .3) +
+  theme(axis.title.y = element_blank())-> shann_dist
+
+ggplot(data = alpha_interest_rarefy) +
+  geom_density(aes(x = Simpson, fill = commonName),
+               alpha = .3) +
+  theme(axis.title.y = element_blank())-> simp_dist
+
+ggarrange(obs_dist, shann_dist, simp_dist,
+          nrow = 1,
+          common.legend = TRUE) +
+  labs(y = "density")
+
+obs_rarefy_red = alpha_interest_rarefy[alpha_interest_rarefy[,"commonName"] == "Red shiner", "Observed"]
+obs_rarefy_sand = alpha_interest_rarefy[alpha_interest_rarefy[,"commonName"] == "Sand shiner", "Observed"]
+obs_rarefy_water = alpha_interest_rarefy[alpha_interest_rarefy[,"commonName"] == "Water", "Observed"]
+
+shann_rarefy_red = alpha_interest_rarefy[alpha_interest_rarefy[,"commonName"] == "Red shiner", "Shannon"]
+shann_rarefy_sand = alpha_interest_rarefy[alpha_interest_rarefy[,"commonName"] == "Sand shiner", "Shannon"]
+shann_rarefy_water = alpha_interest_rarefy[alpha_interest_rarefy[,"commonName"] == "Water", "Shannon"]
+
+simp_rarefy_red = alpha_interest_rarefy[alpha_interest_rarefy[,"commonName"] == "Red shiner", "Simpson"]
+simp_rarefy_sand = alpha_interest_rarefy[alpha_interest_rarefy[,"commonName"] == "Sand shiner", "Simpson"]
+simp_rarefy_water = alpha_interest_rarefy[alpha_interest_rarefy[,"commonName"] == "Water", "Simpson"]
+
+# do shapiro-wilk test
+shap_red_obs = shapiro.test(obs_rarefy_red)
+shap_sand_obs = shapiro.test(obs_rarefy_sand)
+shap_water_obs = shapiro.test(obs_rarefy_water)
+
+shap_red_shann = shapiro.test(shann_rarefy_red)
+shap_sand_shann = shapiro.test(shann_rarefy_sand)
+shap_water_shann = shapiro.test(shann_rarefy_water)
+
+shap_red_simp = shapiro.test(simp_rarefy_red)
+shap_sand_simp = shapiro.test(simp_rarefy_sand)
+shap_water_simp = shapiro.test(simp_rarefy_water)
+
+# str(shap_red_obs)
+# shap_red_obs$p.value
+# shap_red_obs$statistic
+
+tibble(metric = c("Observed", "Shannon", "Simpson"),
+       red_shiner = c(shap_red_obs$p.value, shap_red_shann$p.value, shap_red_simp$p.value),
+       sand_shiner = c(shap_sand_obs$p.value, shap_sand_shann$p.value, shap_sand_simp$p.value),
+       water = c(shap_water_obs$p.value, shap_water_shann$p.value, shap_water_simp$p.value)) |> 
+  mutate(red_shiner = round(red_shiner, digits = 6),
+         sand_shiner = round(sand_shiner, digits = 6),
+         water = round(water, digits = 6)) -> rarefy_dist_test
+
+rarefy_dist_test
+```
+
+Use Wilcoxon Rank Sum Test to see if there are significant differences between the alpha diversity metric results of the entire data set compared to the rarefied data set.
+
+```{r compare_rar_etr}
+#| warning: false
+
+# Observed ASVs
+obs_red = wilcox.test(obs_entire_red, obs_rarefy_red)
+obs_sand = wilcox.test(obs_entire_sand, obs_rarefy_sand)
+obs_water = wilcox.test(obs_entire_water, obs_rarefy_water)
+
+# Shannon
+shann_red = wilcox.test(shann_entire_red, shann_rarefy_red)
+shann_sand = wilcox.test(shann_entire_sand, shann_rarefy_sand)
+shann_water = wilcox.test(shann_entire_water, shann_rarefy_water)
+
+# Simpson
+simp_red = wilcox.test(simp_entire_red, simp_rarefy_red)
+simp_sand = wilcox.test(simp_entire_sand, simp_rarefy_sand)
+simp_water = wilcox.test(simp_entire_water, simp_rarefy_water)
+
+# str(obs_red)
+# obs_red$p.value
+
+tibble(metric = c("Observed", "Shannon", "Simpson"),
+      red_shiner = c(obs_red$p.value, shann_red$p.value, simp_red$p.value),
+      sand_shiner = c(obs_sand$p.value, shann_sand$p.value, simp_sand$p.value),
+      water = c(obs_water$p.value, shann_water$p.value, simp_water$p.value)) |> 
+   mutate(red_shiner = round(red_shiner, digits = 6),
+         sand_shiner = round(sand_shiner, digits = 6),
+         water = round(water, digits = 6)) -> wilcox_entire_vs_rarefy
+
+wilcox_entire_vs_rarefy
+```
+
+# Alpha Statistics
+
+-   Summary statistics
+
+```{r alpha_summary_stats}
+alpha_interest |> 
+  group_by(commonName) |> 
+  summarize(obs_mean = mean(Observed),
+            obs_sd = sd(Observed),
+            obs_median = median(Observed),
+            shannon_mean = mean(Shannon),
+            shannon_sd = sd(Shannon),
+            shannon_median = median(Shannon),
+            simpson_mean = mean(Simpson),
+            simpson_sd = sd(Simpson),
+            simpson_median = median(Simpson)) -> alpha_summary_table
+
+alpha_summary_table
+# write.csv(alpha_summary_table, "alpha_summary_table.csv")
+```
+
+-   Significance testing
+
+    -   Observed ASVs
+
+```{r alpha_significance_test1}
+observed_aov = aov(Observed ~ commonName, alpha_interest)
+summary(observed_aov)
+
+observed_posthoc = TukeyHSD(observed_aov)
+as.data.frame(observed_posthoc$commonName)
+```
+
+-   Shannon Index
+
+```{r alpha_significance_test2}
+
+shann_krusk = kruskal.test(Shannon ~ commonName, alpha_interest)
+shann_krusk
+
+dunn.test(x = alpha_interest$Shannon, g = alpha_interest$commonName, method = "bh")
+
+```
+
+-   Simpson Index
+
+```{r alpha_significance_test3}
+
+simp_krusk = kruskal.test(Simpson ~ commonName, alpha_interest)
+simp_krusk
+
+dunn.test(x = alpha_interest$Simpson, g = alpha_interest$commonName, method = "bh")
+
+```
+
+```{r}
+
+# Keep only interest fish species
+keep = c("Water", "Red shiner", "Sand shiner")
+ps_paired_data_interest = prune_samples(ps_paired_data@sam_data$commonName %in% keep, ps_paired_data)
+ps_paired_data_interest
+
+# Number of ASVs
+asv = dim(ps_paired_data_interest@otu_table)[1]
+
+# Number of Reads remaining
+sum = sum(taxa_sums(ps_paired_data_interest))
+
+# mean sample read depth
+mean(sample_sums(ps_paired_data_interest))
+
+# sd of sample read depth
+sd(sample_sums(ps_paired_data_interest))
+
+# min sample read depth
+min(sample_sums(ps_paired_data_interest))
+
+# max sample read depth
+max(sample_sums(ps_paired_data_interest))
+```
+
+# Beta Diversity
+
+## PCoA ordination
+
+```{r bray_dist}
+# checking for NA values
+# any(is.na(ps_norm@sam_data$sampleType))
+# any(is.na(ps_norm@sam_data$commonName))
+# Water samples have NA for commonName, change the NA to "water"
+ps_norm@sam_data$commonName[ps_norm@sam_data$sampleType == "water"] = "Water"
+# any(is.na(ps_norm@sam_data$river))
+
+# Keep only interest fish species
+keep = c("Water", "Red shiner", "Sand shiner")
+ps_norm = prune_samples(ps_norm@sam_data$commonName %in% keep, ps_norm)
+
+set.seed(1024)
+
+distme <- get_dist(ps_norm, distmethod ="bray", method="hellinger")
+
+sampleda <- data.frame(sample_data(ps_norm), check.names=FALSE)
+sampleda <- sampleda[match(colnames(as.matrix(distme)),rownames(sampleda)),,drop=FALSE]
+```
+
+```{r PCoA_quick}
+set.seed(1024)
+pcoares <- get_pcoa(obj=ps_norm, distmethod="bray", method="hellinger")
+# str(pcoares)
+# class(pcoares)
+# pcoares@pca$trace
+# pcoares@pca$vectors
+
+
+# first and third principal co-ordinates
+pcoaplot1 <- ggordpoint(obj=pcoares, pc=c(1, 2), biplot=TRUE, speciesannot=TRUE,
+                        factorNames=c("commonName", "station"), ellipse=TRUE)
+pcoaplot1
+```
+
+# PERMANOVA (RIVER)
+```{r permanova1}
+set.seed(1024)
+adores1 = adonis2(distme ~ commonName * river, data=sampleda, permutation=9999)
+adores1
+
+adores2 = adonis2(distme ~ river * commonName, data=sampleda, permutation=9999)
+adores2
+```
+
+```{r function_creation}
+# Create Function to do Pairwise tests
+
+pairwise_adonis = function(ps, vari, g1, g2, seed = 1024){
+  # set seed
+  set.seed(seed)
+  
+  # make phyloseq subset
+  sample_sub = prune_samples((ps@sam_data[[vari]] == g1 | ps@sam_data[[vari]] == g2), ps)
+  sample_sub = phyloseq::prune_taxa(phyloseq::taxa_sums(sample_sub) > 0, sample_sub)
+  
+  # get distance matrix
+  dist = MicrobiotaProcess::get_dist(sample_sub, distmethod ="bray", method="hellinger")
+  
+  # make sample data frame
+  sample_dat = data.frame(phyloseq::sample_data(sample_sub), check.names=FALSE)
+  sample_dat = sample_dat[match(colnames(as.matrix(dist)),rownames(sample_dat)),,drop=FALSE]
+  
+  # do PERMANOVA
+  model_call <- as.formula(paste0("dist~",vari))
+  permanova = vegan::adonis2(model_call, data = sample_dat, permutations = 9999)
+  
+  # do BETADISPER
+  dispersion_test = vegan::betadisper(d = dist, group = sample_dat[[vari]])
+  
+  # output
+  output = list(sample_data = as.data.frame(sample_sub@sam_data),
+                model_call = paste0("dist~",vari),
+                permanova = permanova,
+                betadisper = dispersion_test)
+  return(output)
+}
+```
+
+## Pairwise Permanova
+
+### Sample Type
+```{r}
+#| warning: false
+set.seed(1024)
+
+# Red shiner vs Sand shiner
+
+
+red_sand_test = pairwise_adonis(ps = ps_norm, 
+                                vari = "commonName",
+                                g1 = "Red shiner",
+                                g2 = "Sand shiner")
+red_sand_test$model_call
+red_sand_test$permanova
+
+# Red shiner vs Water
+
+red_water_test = pairwise_adonis(ps = ps_norm,
+                                 vari = "commonName",
+                                 g1 = "Red shiner",
+                                 g2 = "Water")
+red_water_test$permanova
+
+# Sand shiner vs Water
+
+sand_water_test = pairwise_adonis(ps = ps_norm, 
+                                  vari = "commonName",
+                                  g1 = "Sand shiner",
+                                  g2 = "Water")
+sand_water_test$permanova
+
+
+# Adjust P-values to account for multiple testing using the Benjamani-Hochberg method
+# Pull R2 values for data frame
+pairwise_p_permanova = data.frame(R2 = c(red_sand_test$permanova$R2[1], red_water_test$permanova$R2[1], sand_water_test$permanova$R2[1]))
+
+row.names(pairwise_p_permanova) = c("Red - Sand", "Red - Water", "Sand - Water")
+
+pairwise_p_permanova$p = c(red_sand_test$permanova$`Pr(>F)`[1], red_water_test$permanova$`Pr(>F)`[1], sand_water_test$permanova$`Pr(>F)`[1])
+
+pairwise_p_permanova$p.adjust = p.adjust(pairwise_p_permanova$p, method = "BH")
+pairwise_p_permanova
+```
+
+### River
+```{r}
+#| warning: False
+
+# mloup vs sloup
+m_s_test = pairwise_adonis(ps = ps_norm, 
+                           vari = "river",
+                           g1 = "mloup",
+                           g2 = "sloup")
+m_s_test$permanova
+
+# mloup vs elkhorn
+m_elk_test = pairwise_adonis(ps = ps_norm,
+                             vari = "river",
+                             g1 = "mloup",
+                             g2 = "elkhorn")
+m_elk_test$permanova
+
+# sloup vs elkhorn
+s_elk_test = pairwise_adonis(ps = ps_norm,
+                             vari = "river",
+                             g1 = "sloup",
+                             g2 = "elkhorn")
+s_elk_test$permanova
+
+# Adjust P-values to account for multiple testing using the Benjamani-Hochberg method
+# Pull R2 values for data frame
+pairwise_p_permanova = data.frame(R2 = c(m_s_test$permanova$R2[1], 
+                                         m_elk_test$permanova$R2[1],
+                                         s_elk_test$permanova$R2[1]))
+
+row.names(pairwise_p_permanova) = c("mloup - sloup", "mloup - elkhorn", "sloup - elkhorn")
+
+pairwise_p_permanova$p = c(m_s_test$permanova$`Pr(>F)`[1], 
+                           m_elk_test$permanova$`Pr(>F)`[1],
+                           s_elk_test$permanova$`Pr(>F)`[1])
+
+pairwise_p_permanova$p.adjust = p.adjust(pairwise_p_permanova$p, method = "BH")
+pairwise_p_permanova
+```
+
+# BETADISPER (RIVER)
+### Sample Type
+```{r}
+set.seed(1024)
+# Test for heterogeneity of variance in the commonName groups
+bd  = betadisper(d = distme, group = sampleda$commonName)
+bd
+
+anova(bd)
+permutest(bd)
+```
+####pairwise:sampleType
+```{r}
+set.seed(1024)
+
+# Red shiner vs Sand shiner
+red_sand_tab = anova(red_sand_test$betadisper)
+red_sand_tab
+
+# Red shiner vs Water
+red_water_tab = anova(red_water_test$betadisper)
+red_water_tab
+
+# Sand shiner vs Water
+sand_water_tab = anova(sand_water_test$betadisper)
+sand_water_tab
+
+pairwise_betadisper1 = data.frame(p = c(red_sand_tab$`Pr(>F)`[1],
+                                      red_water_tab$`Pr(>F)`[1],
+                                      red_water_tab$`Pr(>F)`[1]))
+row.names(pairwise_betadisper1) = c("red - sand",
+                                    "red - water",
+                                    "sand - water")
+pairwise_betadisper1$p.adjust = p.adjust(pairwise_betadisper1$p, method = "BH")
+pairwise_betadisper1
+```
+
+
+### River
+```{r}
+set.seed(1024)
+# Test for heterogeneity of variance in the commonName groups
+bd  = betadisper(d = distme, group = sampleda$river)
+bd
+
+anova(bd)
+permutest(bd)
+```
+#### pairwise:river
+```{r}
+set.seed(1024)
+
+# mloup vs sloup
+m_s_tab = anova(m_s_test$betadisper)
+m_s_tab
+
+# mloup vs elkhorn
+m_elk_tab = anova(m_elk_test$betadisper)
+m_elk_tab
+
+# sloup vs elkhorn
+s_elk_tab = anova(s_elk_test$betadisper)
+s_elk_tab
+
+pairwise_betadisper1 = data.frame(p = c(m_s_tab$`Pr(>F)`[1],
+                                        m_elk_tab$`Pr(>F)`[1],
+                                        s_elk_tab$`Pr(>F)`[1]))
+row.names(pairwise_betadisper1) = c("mloup - sloup",
+                                    "mloup - elkhorn",
+                                    "sloup - elkhorn")
+pairwise_betadisper1$p.adjust = p.adjust(pairwise_betadisper1$p, method = "BH")
+pairwise_betadisper1
+```
+
+
+
+# PERMANOVA
+
+```{r permanova}
+set.seed(1024)
+adores1 = adonis2(distme ~ commonName * station, data=sampleda, permutation=9999)
+adores1
+
+adores2 = adonis2(distme ~ station * commonName, data=sampleda, permutation=9999)
+adores2
+```
+
+```{r pairwise_adonis_function}
+# Create Function to do Pairwise tests
+# NOTE: for some reason ths function is only working if I pre-define the variables in my environment before passing them to the function. I have no Idea why it needs that, but it seems to be working.  
+
+pairwise_adonis_commonName = function(ps, vari, g1, g2){
+  # set seed
+  set.seed(1024)
+  # Create subset phyloseq
+  subset = subset_samples(ps, (ps@sam_data[[vari]] == g1 | ps@sam_data[[vari]] == g2))
+  subset = prune_species(speciesSums(subset) > 0, subset)
+  # get distance matrix
+  dist = get_dist(subset, distmethod ="bray", method="hellinger")
+  # make sample data frame
+  sampledat = data.frame(sample_data(subset), check.names=FALSE)
+  sampledat = sampledat[match(colnames(as.matrix(dist)),rownames(sampledat)),,drop=FALSE]
+  # do PERMANOVA
+  permanova = adonis2(dist ~ commonName, data = sampledat, permutations = 9999)
+  # do BETADISPER
+  dispersion_test = betadisper(d = dist, group = sampledat[[vari]])
+  data = list(permanova = permanova,
+              betadisper = dispersion_test)
+  return(data)
+}
+
+pairwise_adonis_station = function(ps, vari, g1, g2){
+  # set seed
+  set.seed(1024)
+  # Create subset phyloseq
+  subset = subset_samples(ps, (ps@sam_data[[vari]] == g1 | ps@sam_data[[vari]] == g2))
+  subset = prune_species(speciesSums(subset) > 0, subset)
+  # get distance matrix
+  dist = get_dist(subset, distmethod ="bray", method="hellinger")
+  # make sample data frame
+  sampledat = data.frame(sample_data(subset), check.names=FALSE)
+  sampledat = sampledat[match(colnames(as.matrix(dist)),rownames(sampledat)),,drop=FALSE]
+  # do PERMANOVA
+  permanova = adonis2(dist ~ station, data = sampledat, permutations = 9999)
+  # do BETADISPER
+  dispersion_test = betadisper(d = dist, group = sampledat[[vari]])
+  data = list(permanova = permanova,
+              betadisper = dispersion_test)
+  return(data)
+}
+```
+
+## PairwisePermanova
+
+### commonName
+
+```{r pairwise_permanova_commonName}
+#| warning: false
+set.seed(1024)
+
+# Red shiner vs Sand shiner
+ps = ps_norm
+vari = "commonName"
+g1 = "Red shiner"
+g2 = "Sand shiner"
+
+red_sand_test = pairwise_adonis_commonName(ps_norm, "commonName","Red shiner","Sand shiner")
+red_sand_test$permanova
+
+# Red shiner vs Water
+ps = ps_norm
+vari = "commonName"
+g1 = "Red shiner"
+g2 = "Water"
+
+red_water_test = pairwise_adonis_commonName(ps_norm, "commonName","Red shiner","Water")
+red_water_test$permanova
+
+# Sand shiner vs Water
+ps = ps_norm
+vari = "commonName"
+g1 = "Sand shiner"
+g2 = "Water"
+
+sand_water_test = pairwise_adonis_commonName(ps_norm, "commonName","Sand shiner","Water")
+sand_water_test$permanova
+
+
+# Adjust P-values to account for multiple testing using the Benjamani-Hochberg method
+# Pull R2 values for data frame
+pairwise_p_permanova = data.frame(R2 = c(red_sand_test$permanova$R2[1], red_water_test$permanova$R2[1], sand_water_test$permanova$R2[1]))
+
+row.names(pairwise_p_permanova) = c("Red - Sand", "Red - Water", "Sand - Water")
+
+pairwise_p_permanova$p = c(red_sand_test$permanova$`Pr(>F)`[1], red_water_test$permanova$`Pr(>F)`[1], sand_water_test$permanova$`Pr(>F)`[1])
+
+pairwise_p_permanova$p.adjust = p.adjust(pairwise_p_permanova$p, method = "BH")
+pairwise_p_permanova
+```
+
+### Stations
+
+```{r pairwise_permanova_stations}
+#| warning: false
+set.seed(1024)
+
+# boelus vs hwy183
+ps = ps_norm
+vari = "station"
+g1 = "boelus"
+g2 = "hwy183"
+
+boelus_hwy183_test = pairwise_adonis_station(ps_norm, "station","boelus","hwy183")
+boelus_hwy183_test$permanova
+
+# boelus vs oneil
+ps = ps_norm
+vari = "station"
+g1 = "boelus"
+g2 = "oneil"
+
+boelus_oneil_test = pairwise_adonis_station(ps_norm, "station","boelus","oneil")
+boelus_oneil_test$permanova
+
+# boelus vs presseywma
+ps = ps_norm
+vari = "station"
+g1 = "boelus"
+g2 = "presseywma"
+
+boelus_presseywma_test = pairwise_adonis_station(ps_norm, "station","boelus","presseywma")
+boelus_presseywma_test$permanova
+
+# boelus vs ravenna
+ps = ps_norm
+vari = "station"
+g1 = "boelus"
+g2 = "ravenna"
+
+boelus_ravenna_test = pairwise_adonis_station(ps_norm, "station","boelus","ravenna")
+boelus_ravenna_test$permanova
+
+# boelus vs sartoria
+ps = ps_norm
+vari = "station"
+g1 = "boelus"
+g2 = "sartoria"
+
+boelus_sartoria_test = pairwise_adonis_station(ps_norm, "station","boelus","sartoria")
+boelus_sartoria_test$permanova
+
+# boelus vs southstpaul
+ps = ps_norm
+vari = "station"
+g1 = "boelus"
+g2 = "southstpaul"
+
+boelus_southstpaul_test = pairwise_adonis_station(ps_norm, "station","boelus","southstpaul")
+boelus_southstpaul_test$permanova
+
+# hwy183 vs oneil
+ps = ps_norm
+vari = "station"
+g1 = "hwy183"
+g2 = "oneil"
+
+hwy183_oneil_test = pairwise_adonis_station(ps_norm, "station","hwy183","oneil")
+hwy183_oneil_test$permanova
+
+# hwy183 vs presseywma
+ps = ps_norm
+vari = "station"
+g1 = "hwy183"
+g2 = "presseywma"
+
+hwy183_presseywma_test = pairwise_adonis_station(ps_norm, "station","hwy183","presseywma")
+hwy183_presseywma_test$permanova
+
+# hwy183 vs ravenna
+ps = ps_norm
+vari = "station"
+g1 = "hwy183"
+g2 = "ravenna"
+
+hwy183_ravenna_test = pairwise_adonis_station(ps_norm, "station","hwy183","ravenna")
+hwy183_ravenna_test$permanova
+
+# hwy183 vs sartoria
+ps = ps_norm
+vari = "station"
+g1 = "hwy183"
+g2 = "sartoria"
+
+hwy183_sartoria_test = pairwise_adonis_station(ps_norm, "station","hwy183","sartoria")
+hwy183_sartoria_test$permanova
+
+# hwy183 vs southstpaul
+ps = ps_norm
+vari = "station"
+g1 = "hwy183"
+g2 = "southstpaul"
+
+hwy183_southstpaul_test = pairwise_adonis_station(ps_norm, "station","hwy183","southstpaul")
+hwy183_southstpaul_test$permanova
+
+# oneil vs presseywma
+ps = ps_norm
+vari = "station"
+g1 = "oneil"
+g2 = "presseywma"
+
+oneil_presseywma_test = pairwise_adonis_station(ps_norm, "station","oneil","presseywma")
+oneil_presseywma_test$permanova
+
+# oneil vs ravenna
+ps = ps_norm
+vari = "station"
+g1 = "oneil"
+g2 = "ravenna"
+
+oneil_ravenna_test = pairwise_adonis_station(ps_norm, "station","oneil","ravenna")
+oneil_ravenna_test$permanova
+
+# oneil vs sartoria
+ps = ps_norm
+vari = "station"
+g1 = "oneil"
+g2 = "sartoria"
+
+oneil_sartoria_test = pairwise_adonis_station(ps_norm, "station","oneil","sartoria")
+oneil_sartoria_test$permanova
+
+# oneil vs southstpaul
+ps = ps_norm
+vari = "station"
+g1 = "oneil"
+g2 = "southstpaul"
+
+oneil_southstpaul_test = pairwise_adonis_station(ps_norm, "station","oneil","southstpaul")
+oneil_southstpaul_test$permanova
+
+# presseywma vs ravenna
+ps = ps_norm
+vari = "station"
+g1 = "presseywma"
+g2 = "ravenna"
+
+presseywma_ravenna_test = pairwise_adonis_station(ps_norm, "station","presseywma","ravenna")
+presseywma_ravenna_test$permanova
+
+# presseywma vs sartoria
+ps = ps_norm
+vari = "station"
+g1 = "presseywma"
+g2 = "sartoria"
+
+presseywma_sartoria_test = pairwise_adonis_station(ps_norm, "station","presseywma","sartoria")
+presseywma_sartoria_test$permanova
+
+# presseywma vs southstpaul
+ps = ps_norm
+vari = "station"
+g1 = "presseywma"
+g2 = "southstpaul"
+
+presseywma_southstpaul_test = pairwise_adonis_station(ps_norm, "station","presseywma","southstpaul")
+presseywma_southstpaul_test$permanova
+
+# ravenna vs sartoria
+ps = ps_norm
+vari = "station"
+g1 = "ravenna"
+g2 = "sartoria"
+
+ravenna_sartoria_test = pairwise_adonis_station(ps_norm, "station","ravenna","sartoria")
+ravenna_sartoria_test$permanova
+
+# ravenna vs southstpaul
+ps = ps_norm
+vari = "station"
+g1 = "ravenna"
+g2 = "southstpaul"
+
+ravenna_southstpaul_test = pairwise_adonis_station(ps_norm, "station","ravenna","southstpaul")
+ravenna_southstpaul_test$permanova
+
+# sartoria vs southstpaul
+ps = ps_norm
+vari = "station"
+g1 = "sartoria"
+g2 = "southstpaul"
+
+sartoria_southstpaul_test = pairwise_adonis_station(ps_norm, "station","sartoria","southstpaul")
+sartoria_southstpaul_test$permanova
+
+
+# Adjust P-values to account for multiple testing using the Benjamani-Hochberg method
+# Pull R2 values for data frame
+pairwise_p_permanova2 = data.frame(R2 = c(boelus_hwy183_test$permanova$R2[1],
+                                         boelus_oneil_test$permanova$R2[1],
+                                         boelus_presseywma_test$permanova$R2[1],
+                                         boelus_ravenna_test$permanova$R2[1],
+                                         boelus_sartoria_test$permanova$R2[1],
+                                         boelus_southstpaul_test$permanova$R2[1],
+                                         hwy183_oneil_test$permanova$R2[1],
+                                         hwy183_presseywma_test$permanova$R2[1],
+                                         hwy183_ravenna_test$permanova$R2[1],
+                                         hwy183_sartoria_test$permanova$R2[1],
+                                         hwy183_southstpaul_test$permanova$R2[1],
+                                         oneil_presseywma_test$permanova$R2[1],
+                                         oneil_ravenna_test$permanova$R2[1],
+                                         oneil_sartoria_test$permanova$R2[1],
+                                         oneil_southstpaul_test$permanova$R2[1],
+                                         presseywma_ravenna_test$permanova$R2[1],
+                                         presseywma_sartoria_test$permanova$R2[1],
+                                         presseywma_southstpaul_test$permanova$R2[1],
+                                         ravenna_sartoria_test$permanova$R2[1],
+                                         ravenna_southstpaul_test$permanova$R2[1],
+                                         sartoria_southstpaul_test$permanova$R2[1]))
+
+row.names(pairwise_p_permanova2) = c("boelus - hwy183",
+                                     "boelus - oneil",
+                                     "boelus - presseywma",
+                                     "boelus - ravenna",
+                                     "boelus - sartoria",
+                                     "boelus - southstpaul",
+                                     "hwy183 - oneil",
+                                     "hwy183 - presseywma",
+                                     "hwy183 - ravenna",
+                                     "hwy183 - sartoria",
+                                     "hwy183 - southstpaul",
+                                     "oneil - presseywma",
+                                     "oneil - ravenna",
+                                     "oneil - sartoria",
+                                     "oneil - souhstpaul",
+                                     "presseywma - ravenna",
+                                     "presseywma - sartoria",
+                                     "presseywma - southstpaul",
+                                     "ravenna - sartoria",
+                                     "ravenna - southstpaul",
+                                     "sartoria - southstpaul")
+
+pairwise_p_permanova2$p = c(boelus_hwy183_test$permanova$`Pr(>F)`[1],
+                            boelus_oneil_test$permanova$`Pr(>F)`[1],
+                            boelus_presseywma_test$permanova$`Pr(>F)`[1],
+                            boelus_ravenna_test$permanova$`Pr(>F)`[1],
+                            boelus_sartoria_test$permanova$`Pr(>F)`[1],
+                            boelus_southstpaul_test$permanova$`Pr(>F)`[1],
+                            hwy183_oneil_test$permanova$`Pr(>F)`[1],
+                            hwy183_presseywma_test$permanova$`Pr(>F)`[1],
+                            hwy183_ravenna_test$permanova$`Pr(>F)`[1],
+                            hwy183_sartoria_test$permanova$`Pr(>F)`[1],
+                            hwy183_southstpaul_test$permanova$`Pr(>F)`[1],
+                            oneil_presseywma_test$permanova$`Pr(>F)`[1],
+                            oneil_ravenna_test$permanova$`Pr(>F)`[1],
+                            oneil_sartoria_test$permanova$`Pr(>F)`[1],
+                            oneil_southstpaul_test$permanova$`Pr(>F)`[1],
+                            presseywma_ravenna_test$permanova$`Pr(>F)`[1],
+                            presseywma_sartoria_test$permanova$`Pr(>F)`[1],
+                            presseywma_southstpaul_test$permanova$`Pr(>F)`[1],
+                            ravenna_sartoria_test$permanova$`Pr(>F)`[1],
+                            ravenna_southstpaul_test$permanova$`Pr(>F)`[1],
+                            sartoria_southstpaul_test$permanova$`Pr(>F)`[1])
+
+pairwise_p_permanova2$p.adjust = p.adjust(pairwise_p_permanova2$p, method = "BH")
+pairwise_p_permanova2
+```
+
+# BETADISPER
+
+## commonName
+
+```{r betadisper_commonName}
+set.seed(1024)
+# Test for heterogeneity of variance in the commonName groups
+bd  = betadisper(d = distme, group = sampleda$commonName)
+bd
+
+anova(bd)
+permutest(bd)
+
+vectorsA = bd$vectors
+centrioids = bd$centroids
+distance = as.data.frame(bd$distances)
+
+distance |> 
+  tibble::as_tibble(rownames = "sample") -> distance
+
+vectorsA |> 
+  tibble::as_tibble(rownames = "sample") -> vectorsA
+
+disperion_data = left_join(x = vectorsA,
+                          y = distance,
+                          by = "sample")
+disperion_data$group = bd$group
+
+names(disperion_data)
+  
+ggplot(data = disperion_data) +
+  geom_boxplot(aes(x = group,
+                   y = bd$distances)) +
+  labs(y = "Distance to Centroid",
+       x = "")+
+  theme_bw() -> sampleType_distance_to_centroid
+sampleType_distance_to_centroid
+
+# ggsave("figs/sampleType_distance_to_centroid.png", sampleType_distance_to_centroid, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+### Pairwise: commonName
+
+```{r pairwise_betadisper_commonName}
+set.seed(1024)
+
+# Red shiner vs Sand shiner
+red_sand_tab = anova(red_sand_test$betadisper)
+red_sand_tab
+
+# Red shiner vs Water
+red_water_tab = anova(red_water_test$betadisper)
+red_water_tab
+
+# Sand shiner vs Water
+sand_water_tab = anova(sand_water_test$betadisper)
+sand_water_tab
+
+pairwise_betadisper1 = data.frame(p = c(red_sand_tab$`Pr(>F)`[1],
+                                      red_water_tab$`Pr(>F)`[1],
+                                      red_water_tab$`Pr(>F)`[1]))
+row.names(pairwise_betadisper1) = c("red - sand",
+                                    "red - water",
+                                    "sand - water")
+pairwise_betadisper1$p.adjust = p.adjust(pairwise_betadisper1$p, method = "BH")
+pairwise_betadisper1
+```
+
+## Station
+
+```{r betadisper_station}
+set.seed(1024)
+# Test for heterogeneity of variance in the commonName groups
+bd  = betadisper(d = distme, group = sampleda$station)
+bd
+
+anova(bd)
+permutest(bd)
+
+vectorsA = bd$vectors
+centrioids = bd$centroids
+distance = as.data.frame(bd$distances)
+
+distance |> 
+  tibble::as_tibble(rownames = "sample") -> distance
+
+vectorsA |> 
+  tibble::as_tibble(rownames = "sample") -> vectorsA
+
+disperion_data = left_join(x = vectorsA,
+                          y = distance,
+                          by = "sample")
+disperion_data$group = bd$group
+
+names(disperion_data)
+  
+ggplot(data = disperion_data) +
+  geom_boxplot(aes(x = group,
+                   y = bd$distances)) +
+  labs(y = "Distance to Centroid",
+       x = "")+
+  theme_bw() -> station_distance_to_centroid
+station_distance_to_centroid
+
+# ggsave("figs/station_distance_to_centroid.png", station_distance_to_centroid, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+
+# Envifit
+
+```{r}
+set.seed(1024)
+
+meta = as.data.frame(ps_norm@sam_data)
+meta |> 
+  as_tibble() |> 
+  mutate(fieldDate = mdy(meta$fieldDate),
+         day_of_yr = yday(fieldDate)) |> 
+  select(ammonia,
+         turbidity,
+         do,
+         temperature,
+         no3,
+         totalNitrogen,
+         totalPhosphorus,
+         day_of_yr)  -> meta_env
+
+vectors = pcoares@pca$vectors
+
+ef = envfit(ord = vectors, env = meta_env, perm = 999, na.rm= TRUE)
+ef
+
+# str(ef)
+
+
+
+## testing doing Envfit on water and fish seperately
+
+ps_norm_water = subset_samples(ps_norm, ps_norm@sam_data$commonName == "Water")
+ps_norm_fish = subset_samples(ps_norm, ps_norm@sam_data$commonName != "Water")
+
+## Water
+set.seed(1024)
+pcoares2 <- get_pcoa(obj=ps_norm_water, distmethod="bray", method="hellinger")
+
+meta = as.data.frame(ps_norm_water@sam_data)
+meta |> 
+  as_tibble() |> 
+  mutate(fieldDate = mdy(meta$fieldDate),
+         day_of_yr = yday(fieldDate)) |> 
+  select(ammonia,
+         turbidity,
+         do,
+         temperature,
+         no3,
+         totalNitrogen,
+         totalPhosphorus,
+         day_of_yr)  -> meta_env
+
+vectors2 = pcoares2@pca$vectors
+
+ef2 = envfit(ord = vectors2, env = meta_env, perm = 999, na.rm= TRUE)
+ef2
+
+## Fish
+set.seed(1024)
+pcoares3 <- get_pcoa(obj=ps_norm_fish, distmethod="bray", method="hellinger")
+
+meta = as.data.frame(ps_norm_fish@sam_data)
+meta |> 
+  as_tibble() |> 
+  mutate(fieldDate = mdy(meta$fieldDate),
+         day_of_yr = yday(fieldDate)) |> 
+  select(ammonia,
+         turbidity,
+         do,
+         temperature,
+         no3,
+         totalNitrogen,
+         totalPhosphorus,
+         day_of_yr)  -> meta_env
+
+vectors3 = pcoares3@pca$vectors
+
+ef3 = envfit(ord = vectors3, env = meta_env, perm = 999, na.rm= TRUE)
+ef3
+
+
+```
+
+# Ordisurf
+
+```{r}
+
+```
+
+
+# Ordination
+
+### PCoA axis analysis
+
+```{r PCoA_axis_analysis}
+# Plotting % explained by each axis (ie the Relative_eig for each vector)
+
+values = pcoares@pca$values
+
+values |> 
+  mutate(vector = row.names(values),
+         vector = as.numeric(vector)) |> 
+  as_tibble() |> 
+  select(vector, Eigenvalues, Relative_eig) -> values
+
+
+ggplot(data = values) +
+  geom_point(aes(x = vector,
+                y = (Relative_eig * 100))) +
+  geom_hline(yintercept = (1/dim(values)[1] * 100),
+             color = "gray") +
+  labs(x = "Vector",
+       y = "% Variation Explained") +
+  theme_classic()
+```
+
+### Simple Ordintation
+
+```{r ordintation_commonName}
+# Manual PCoA plotting for more control
+pcoa1 = as.data.frame(pcoares@pca$vectors)
+
+pcoa1 |> 
+  mutate(sample = row.names(pcoa1)) |> 
+  as_tibble() |> 
+  select(sample, Axis.1, Axis.2, Axis.3) -> pcoa1_clean
+
+# merge PCoA axis data with sample metadata
+meta = as.data.frame(ps_norm@sam_data)
+
+pcoa1_clean = full_join(pcoa1_clean, meta, by = c("sample" = "sampleID"))
+# names(pcoa1_clean)
+
+# Make PCoA Axis Labels
+labs = c(paste0("PCoA 1 (", round((values$Relative_eig[1] * 100), digits = 2), "%)"),
+         paste0("PCoA 2 (", round((values$Relative_eig[2] * 100), digits = 2), "%)"),
+         paste0("PCoA 3 (", round((values$Relative_eig[3] * 100), digits = 2), "%)"))
+
+## Samples colored by commonName, no ASV vector shown
+ggplot()+
+  geom_point(data = pcoa1_clean,
+             aes(x = Axis.1,
+                 y = Axis.2,
+                 color = commonName)) +
+  geom_abline(intercept = 0, slope = 0,
+              linetype = "dashed",
+              size = 0.8,
+              color = "gray")+
+  geom_vline(aes(xintercept = 0),
+             linetype = "dashed",
+             size = 0.8,
+             color = "gray")+
+  stat_ellipse(data = pcoa1_clean,
+               aes(x = Axis.1,
+                 y = Axis.2,
+                 color = commonName)) +
+  labs(x = labs[1],
+       y = labs[2],
+       color = "Sample Type") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(color = "black")) -> simple_pcoa
+simple_pcoa
+
+# ggsave("figs/siple_pcoa.png", simple_pcoa, width = 7, height = 5, units = "in", dpi = 300)
+
+```
+
+```{r ordination_commonName_station}
+## Samples shape by commonName, color by station, no ASV vector shown
+# manually define shapes bc ggplot can only handle 6 or fewer
+shapes = list(boelus = 16,
+              hwy183 = 17,
+              oneil = 15,
+              presseywma = 3,
+              ravenna = 12,
+              sartoria = 8,
+              southstpaul = 9)
+
+ggplot()+
+  geom_point(data = pcoa1_clean,
+             aes(x = Axis.1,
+                 y = Axis.2,
+                 color = commonName,
+                 shape = station)) +
+  scale_shape_manual(values = shapes) +
+  geom_abline(intercept = 0, slope = 0,
+              linetype = "dashed",
+              size = 0.8,
+              color = "gray")+
+  geom_vline(aes(xintercept = 0),
+             linetype = "dashed",
+             size = 0.8,
+             color = "gray")+
+  stat_ellipse(data = pcoa1_clean,
+               aes(x = Axis.1,
+                 y = Axis.2,
+                 color = commonName)) +
+  labs(x = labs[1],
+       y = labs[2],
+       color = "Sample Type") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(color = "black")) -> pcoa_with_station
+pcoa_with_station
+
+# ggsave("figs/pcoa_with_station.png", pcoa_with_station, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+## envfit significant variables plotted
+
+```{r ordination_envfit_lines}
+ef_vectors = ef$vectors$arrows
+ef_vectors |> 
+  as_tibble(rownames = "variable") -> ef_vectors
+
+ef_vectors |> 
+  filter(variable == "temperature") -> ef_vectors_sig
+
+ef_vectors |> 
+  filter(variable != "temperature") -> ef_vectors_nonsig
+
+# Plot these environmental vectors even though they are not significant
+ggplot()+
+  geom_point(data = pcoa1_clean,
+             aes(x = Axis.1,
+                 y = Axis.2,
+                 color = commonName,
+                 shape = station)) +
+  scale_shape_manual(values = shapes)+
+  geom_segment(data = ef_vectors_nonsig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1,
+                   yend = Axis.2),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "grey58",
+               size = .8,
+               alpha = 1)+
+  geom_text(data = ef_vectors_nonsig,
+            aes(label = variable,
+                x = Axis.1 * 0.9,
+                y = Axis.2 * 0.9),
+            alpha = 1,
+            color = "gray48")+ 
+  geom_segment(data = ef_vectors_sig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1,
+                   yend = Axis.2),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "gray17",
+               size = .8,
+               alpha = 1)+
+  geom_text(data = ef_vectors_sig,
+            aes(label = variable,
+                x = Axis.1 * 1.1,
+                y = Axis.2 * 1.1),
+            alpha = 1)+
+  geom_abline(intercept = 0, slope = 0,
+              linetype = "dashed",
+              size = 0.8,
+              color = "gray")+
+  geom_vline(aes(xintercept = 0),
+             linetype = "dashed",
+             size = 0.8,
+             color = "gray")+
+  labs(x = labs[1],
+       y = labs[2],
+       shape = "Station",
+       color = "Sample Type") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(color = "black")) -> envfit_pcoa
+envfit_pcoa
+
+# ggsave("figs/envfit_pcoa.png", envfit_pcoa, width = 7, height = 5, units = "in", dpi = 300)
+
+# Make the same figure but change from STATION to RIVER
+ggplot()+
+  geom_point(data = pcoa1_clean,
+             aes(x = Axis.1,
+                 y = Axis.2,
+                 color = commonName,
+                 shape = river)) +
+  geom_segment(data = ef_vectors_nonsig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1,
+                   yend = Axis.2),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "grey58",
+               size = .8,
+               alpha = 1)+
+  geom_text(data = ef_vectors_nonsig,
+            aes(label = variable,
+                x = Axis.1 * 0.9,
+                y = Axis.2 * 0.9),
+            alpha = 1,
+            color = "gray48")+ 
+  geom_segment(data = ef_vectors_sig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1,
+                   yend = Axis.2),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "gray17",
+               size = .8,
+               alpha = 1)+
+  geom_text(data = ef_vectors_sig,
+            aes(label = variable,
+                x = Axis.1 * 1.1,
+                y = Axis.2 * 1.1),
+            alpha = 1)+
+  geom_abline(intercept = 0, slope = 0,
+              linetype = "dashed",
+              size = 0.8,
+              color = "gray")+
+  geom_vline(aes(xintercept = 0),
+             linetype = "dashed",
+             size = 0.8,
+             color = "gray")+
+  labs(x = labs[1],
+       y = labs[2],
+       shape = "River",
+       color = "Sample Type") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(color = "black")) -> envfit_pcoa_river
+envfit_pcoa_river
+
+# ggsave("figs/envfit_pcoa_river.png", envfit_pcoa_river, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+## Water samples envfit
+
+```{r}
+pcoa2 = as.data.frame(pcoares2@pca$vectors)
+
+pcoa2 |> 
+  mutate(sample = row.names(pcoa2)) |> 
+  as_tibble() |> 
+  select(sample, Axis.1, Axis.2, Axis.3) -> pcoa2_clean
+# merge PCoA axis data with sample metadata
+meta = as.data.frame(ps_norm_water@sam_data)
+
+pcoa2_clean = full_join(pcoa2_clean, meta, by = c("sample" = "sampleID"))
+
+values2 = pcoares2@pca$values
+
+values2 |> 
+  mutate(vector = row.names(values2),
+         vector = as.numeric(vector)) |> 
+  as_tibble() |> 
+  select(vector, Eigenvalues, Relative_eig) -> values2
+
+# Envfit vectors
+ef_vectors = ef2$vectors$arrows
+ef_vectors |> 
+  as_tibble(rownames = "variable") -> ef_vectors
+
+ef_vectors |> 
+  filter(variable == "totalNitrogen" | variable == "day_of_yr") -> ef_vectors_sig
+
+ef_vectors |> 
+  filter(variable != "totalNitrogen" & variable != "day_of_yr") -> ef_vectors_nonsig
+
+# Make PCoA Axis Labels
+labs = c(paste0("PCoA 1 (", round((values2$Relative_eig[1] * 100), digits = 2), "%)"),
+         paste0("PCoA 2 (", round((values2$Relative_eig[2] * 100), digits = 2), "%)"),
+         paste0("PCoA 3 (", round((values2$Relative_eig[3] * 100), digits = 2), "%)"))
+
+shapes = list(boelus = 16,
+              hwy183 = 17,
+              oneil = 15,
+              presseywma = 3,
+              ravenna = 12,
+              sartoria = 8,
+              southstpaul = 9)
+
+
+### PLOT ###
+ggplot()+
+  geom_segment(data = ef_vectors_nonsig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1 * 0.8,
+                   yend = Axis.2 * 0.8),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "grey58",
+               size = .8,
+               alpha = 1)+
+  geom_text(data = ef_vectors_nonsig,
+            aes(label = variable,
+                x = Axis.1 * 0.9,
+                y = Axis.2 * 0.9),
+            alpha = 1,
+            color = "gray48",
+            size = 3)+ 
+  geom_segment(data = ef_vectors_sig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1 *0.8,
+                   yend = Axis.2 * 0.8),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "gray17",
+               size = .8,
+               alpha = 1)+
+  geom_text(data = ef_vectors_sig,
+            aes(label = variable,
+                x = Axis.1 * 0.9,
+                y = Axis.2 * 0.9),
+            alpha = 1,
+            size = 3)+
+  geom_abline(intercept = 0, slope = 0,
+              linetype = "dashed",
+              size = 0.8,
+              color = "gray")+
+  geom_vline(aes(xintercept = 0),
+             linetype = "dashed",
+             size = 0.8,
+             color = "gray")+
+  geom_point(data = pcoa2_clean,
+             aes(x = Axis.1,
+                 y = Axis.2,
+                 shape = station),
+             size = 2.5,
+             color = "#619CFF") +
+  scale_shape_manual(values = shapes)+
+  labs(x = labs[1],
+       y = labs[2],
+       shape = "Station",
+       color = "Sample Type") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(color = "black")) -> envfit_pcoa_water
+envfit_pcoa_water
+
+# ggsave("figs/envfit_water.png", envfit_pcoa_water, width = 7, height = 5, units = "in", dpi = 300)
+
+# Make the same figure but change from STATION to RIVER
+ggplot()+
+  geom_segment(data = ef_vectors_nonsig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1 * 0.8,
+                   yend = Axis.2 * 0.8),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "grey58",
+               size = .8,
+               alpha = 1)+
+  geom_text(data = ef_vectors_nonsig,
+            aes(label = variable,
+                x = Axis.1 * 0.9,
+                y = Axis.2 * 0.9),
+            alpha = 1,
+            color = "gray48",
+            size = 3)+ 
+  geom_segment(data = ef_vectors_sig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1 *0.8,
+                   yend = Axis.2 * 0.8),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "gray17",
+               size = .8,
+               alpha = 1)+
+  geom_text(data = ef_vectors_sig,
+            aes(label = variable,
+                x = Axis.1 * 0.9,
+                y = Axis.2 * 0.9),
+            alpha = 1,
+            size = 3)+
+  geom_abline(intercept = 0, slope = 0,
+              linetype = "dashed",
+              size = 0.8,
+              color = "gray")+
+  geom_vline(aes(xintercept = 0),
+             linetype = "dashed",
+             size = 0.8,
+             color = "gray")+
+  geom_point(data = pcoa2_clean,
+             aes(x = Axis.1,
+                 y = Axis.2,
+                 shape = river),
+             size = 2.5,
+             color = "#619CFF") +
+  labs(x = labs[1],
+       y = labs[2],
+       shape = "River",
+       color = "Sample Type") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(color = "black")) -> envfit_pcoa_water_river
+envfit_pcoa_water_river
+
+# ggsave("figs/envfit_pcoa_water_river.png", envfit_pcoa_water_river, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+## Fish samples envfit
+```{r}
+pcoa3 = as.data.frame(pcoares3@pca$vectors)
+
+pcoa3 |> 
+  mutate(sample = row.names(pcoa3)) |> 
+  as_tibble() |> 
+  select(sample, Axis.1, Axis.2, Axis.3) -> pcoa3_clean
+# merge PCoA axis data with sample metadata
+meta = as.data.frame(ps_norm_fish@sam_data)
+
+pcoa3_clean = full_join(pcoa3_clean, meta, by = c("sample" = "sampleID"))
+
+values3 = pcoares3@pca$values
+
+values3 |> 
+  mutate(vector = row.names(values3),
+         vector = as.numeric(vector)) |> 
+  as_tibble() |> 
+  select(vector, Eigenvalues, Relative_eig) -> values3
+
+# Envfit vectors
+ef_vectors = ef3$vectors$arrows
+ef_vectors |> 
+  as_tibble(rownames = "variable") -> ef_vectors
+
+ef_vectors |> 
+  filter(variable == "turbidity" | 
+         variable == "do" |
+         variable == "temperature" |
+         variable == "totalNitrogen" |
+         variable == "day_of_yr") -> ef_vectors_sig
+
+ef_vectors |> 
+  filter(variable != "turbidity" & 
+         variable != "do" &
+         variable != "temperature" &
+         variable != "totalNitrogen" &
+         variable != "day_of_yr") -> ef_vectors_nonsig
+
+# Make PCoA Axis Labels
+labs = c(paste0("PCoA 1 (", round((values3$Relative_eig[1] * 100), digits = 2), "%)"),
+         paste0("PCoA 2 (", round((values3$Relative_eig[2] * 100), digits = 2), "%)"),
+         paste0("PCoA 3 (", round((values3$Relative_eig[3] * 100), digits = 2), "%)"))
+
+shapes = list(boelus = 16,
+              hwy183 = 17,
+              oneil = 15,
+              presseywma = 3,
+              ravenna = 12,
+              sartoria = 8,
+              southstpaul = 9)
+
+
+### PLOT ###
+ggplot()+
+  geom_segment(data = ef_vectors_nonsig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1 * 0.8,
+                   yend = Axis.2 * 0.8),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "grey58",
+               size = .8,
+               alpha = 1)+
+  geom_text(data = ef_vectors_nonsig,
+            aes(label = variable,
+                x = Axis.1 *0.9,
+                y = Axis.2 *0.9),
+            alpha = 1,
+            color = "gray48",
+            size = 3,
+            nudge_x = 0.1)+ 
+  geom_segment(data = ef_vectors_sig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1 * 0.8,
+                   yend = Axis.2 * 0.8),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "gray17",
+               size = .8,
+               alpha = 0.75)+
+  geom_text(data = ef_vectors_sig,
+            aes(label = variable,
+                x = Axis.1 *0.85,
+                y = Axis.2 *0.90),
+            alpha = 1,
+            size = 3,
+            nudge_x = 0.1)+
+  geom_abline(intercept = 0, slope = 0,
+              linetype = "dashed",
+              size = 0.8,
+              color = "gray")+
+  geom_vline(aes(xintercept = 0),
+             linetype = "dashed",
+             size = 0.8,
+             color = "gray")+
+  geom_point(data = pcoa3_clean,
+             aes(x = Axis.1,
+                 y = Axis.2,
+                 shape = station,
+                 color = commonName),
+             size = 2.5) +
+  scale_shape_manual(values = shapes) +
+  labs(x = labs[1],
+       y = labs[2],
+       shape = "Station") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(color = "black")) -> envfit_pcoa
+
+envfit_pcoa
+
+# ggsave("figs/envfit_fish.png", envfit_pcoa, width = 7, height =5, units = "in", dpi = 300)
+
+# Make the same figure but change from STATION to RIVER
+ggplot()+
+  geom_segment(data = ef_vectors_nonsig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1 * 0.8,
+                   yend = Axis.2 * 0.8),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "grey58",
+               size = .8,
+               alpha = 1)+
+  geom_text(data = ef_vectors_nonsig,
+            aes(label = variable,
+                x = Axis.1 *0.9,
+                y = Axis.2 *0.9),
+            alpha = 1,
+            color = "gray48",
+            size = 3,
+            nudge_x = 0.1)+ 
+  geom_segment(data = ef_vectors_sig,
+               aes(x = 0,
+                   y = 0,
+                   xend = Axis.1 * 0.8,
+                   yend = Axis.2 * 0.8),
+               arrow = arrow(length = unit(0.015, "npc"),
+                             type = "closed"),
+               color = "gray17",
+               size = .8,
+               alpha = 0.75)+
+  geom_text(data = ef_vectors_sig,
+            aes(label = variable,
+                x = Axis.1 *0.85,
+                y = Axis.2 *0.90),
+            alpha = 1,
+            size = 3,
+            nudge_x = 0.1)+
+  geom_abline(intercept = 0, slope = 0,
+              linetype = "dashed",
+              size = 0.8,
+              color = "gray")+
+  geom_vline(aes(xintercept = 0),
+             linetype = "dashed",
+             size = 0.8,
+             color = "gray")+
+  geom_point(data = pcoa3_clean,
+             aes(x = Axis.1,
+                 y = Axis.2,
+                 shape = river,
+                 color = commonName),
+             size = 2.5) +
+  labs(x = labs[1],
+       y = labs[2],
+       shape = "River") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(color = "black")) -> envfit_pcoa_river
+
+envfit_pcoa_river
+
+# ggsave("figs/envfit_fish_river.png", envfit_pcoa_river, width = 7, height =5, units = "in", dpi = 300)
+
+
+
+enfit_combined = ggarrange(envfit_pcoa_water, envfit_pcoa)
+# ggsave("figs/enfit_combined.png", enfit_combined, width = 12, height =5, units = "in", dpi = 300)
+
+```
+
+
+## core microbiomes plotted
+
+```{r ordination_coremicrobiomes}
+
+```
+
+# Simper
+
+```{r simper}
+#| eval: false
+
+# Remove unwanted fish species from the ps_paired_data phyloseobject.size
+keeps = c("Water", "Red shiner", "Sand shiner")
+ps_paired_data_int = prune_samples(ps_paired_data@sam_data$commonName %in% keeps, ps_paired_data)
+ps_paired_data_int = prune_taxa(taxa_sums(ps_paired_data_int) > 0, ps_paired_data_int)
+
+# Code from Federica Montesanto
+
+# # Prune taxa with zero abundance
+# ps <- prune_taxa(taxa_sums(ps_paired_data) > 0, ps_paired_data)
+
+# Convert tax table to data frame
+df_tax <- as.data.frame(ps_paired_data@tax_table)
+df_tax$ASV <- rownames(df_tax)
+df_tax <- df_tax[, c("ASV", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species")]
+
+# Add taxonomy information to OTU table
+asv_mat <- as.matrix(otu_table(ps_paired_data))
+table(rownames(asv_mat) == rownames(df_tax))
+table(colnames(asv_mat) == sample_names(ps_paired_data))
+
+df <- data.frame(asv_mat)
+df$ASV <- rownames(df)
+df <- merge(df, df_tax, by = "ASV")
+
+
+# Replace missing values with zeros
+# only missing values are in the taxonomy information. 0 doesn't make much sense
+# df[is.na(df)] <- 0
+
+# Check data type of each column
+str(df)
+
+# # Convert non-numeric columns to numeric
+df[, -c(1,66,67,68,69,70,71,72)] <- apply(df[, -c(1,66,67,68,69,70,71,72)], 2, as.numeric)
+
+# Calculate distance matrix
+set.seed(1234)
+dist_mat <- vegdist(df[, -c(1,66,67,68,69,70,71,72)], method = "bray")
+
+str(dist_mat)
+# Perform SIMPER analysis
+simper_res <- simper(df[, -c(1,66,67,68,69,70,71,72)], distance = dist_mat, permutations = 999)
+str(simper_res)
+simper_res$total
+```
+# DeSeq2
+
+```{r DESeq2_analysis_settings}
+alpha = 0.01
+
+# create a function to subset a phyloseq to keep only samples from two levels of a categorical variable. Prune ASVs that are not present in these groups.
+subset_ps_2_groups = function(ps, variable, g1, g2){
+  data = prune_samples((ps@sam_data[[variable]] == g1 | ps@sam_data[[variable]] == g2), ps)
+  data = prune_taxa(taxa_sums(data) > 0, data)
+  return(data)
+}
+```
+
+
+```{r deseq2_distribution}
+#| warning: false
+
+plot(sort(taxa_sums(ps_paired_data), TRUE), type="h", ylab="Abundance", main = "ASV rank abundance plot")
+
+# Combine all ASVs of the same family.
+ps_paired_data_FAMILY = tax_glom(ps_paired_data,
+                                taxrank = "Family",
+                                NArm = TRUE)
+ps_paired_data_FAMILY
+
+# check to see if data family distribution is similar to ASV distribution.
+plot(sort(taxa_sums(ps_paired_data_FAMILY), TRUE), type="h", ylab="Abundance", main = "Family rank abundance plot")
+
+# Combine all ASVs of the same order.
+ps_paired_data_ORDER = tax_glom(ps_paired_data,
+                                taxrank = "Order",
+                                NArm = TRUE)
+ps_paired_data_ORDER
+
+# check to see if data order distribution is similar to ASV distribution.
+plot(sort(taxa_sums(ps_paired_data_ORDER), TRUE), type="h", ylab="Abundance", main = "Order rank abundance plot")
+
+# Combine all ASVs of the same phylum.
+
+ps_paired_data_PHYLA = tax_glom(ps_paired_data,
+                                taxrank = "Phylum",
+                                NArm = TRUE)
+
+# check to see if data order distribution is similar to ASV distribution.
+plot(sort(taxa_sums(ps_paired_data_PHYLA), TRUE), type="h", ylab="Abundance", main = "Phyla rank abundance plot")
+
+# See how much of the microbiome is made of a few dominate Phyla
+ps_paired_data_PHYLA_norm = transform_sample_counts(ps_paired_data_PHYLA, function(x) x / sum(x) )
+
+# How much of the fish microbiome is Proteobacteria, Cyanobacteria, Firmicutes, and Actinobacteria?
+phyla_fish_norm = prune_samples(ps_paired_data_PHYLA_norm@sam_data$sampleType == "fecal", ps_paired_data_PHYLA_norm)
+fish_dom_taxa = c("Proteobacteria", "Cyanobacteria", "Firmicutes", "Actinobacteriota")
+phyla_fish_norm = prune_taxa(phyla_fish_norm@tax_table[,2] %in% fish_dom_taxa, phyla_fish_norm)
+
+fish_top_4_abund = sample_sums(phyla_fish_norm)
+min(fish_top_4_abund)
+max(fish_top_4_abund)
+mean(fish_top_4_abund)
+sd(fish_top_4_abund)
+
+# How much of the water microbiome is Proteobacteria, Cyanobacteria, Actionbacteria, and bacterodota
+phyla_water_norm = prune_samples(ps_paired_data_PHYLA_norm@sam_data$sampleType == "water", ps_paired_data_PHYLA_norm)
+water_dom_taxa = c("Proteobacteria", "Cyanobacteria", "Firmicutes", "Bacteroidota")
+ps_water_norm = prune_taxa(phyla_water_norm@tax_table[,2] %in% water_dom_taxa, phyla_water_norm)
+
+water_top_4_abund = sample_sums(ps_water_norm)
+min(water_top_4_abund)
+max(water_top_4_abund)
+mean(water_top_4_abund)
+sd(water_top_4_abund)
+```
+
+## Phyla Level
+### Red Shiner vs Water: Differential Phyla
+```{r DESeq_phyla}
+#| warning: false
+
+### RED SHINER VS WATER ####
+
+# Create phyloseq subset with only Water and Red shiner samples
+ps_water_red_phy = subset_ps_2_groups(ps = ps_paired_data_PHYLA,
+                                        variable = "commonName",
+                                        g1 = "Water",
+                                        g2 = "Red shiner")
+
+# Convert phyloseq to DESeq2
+diagdds = phyloseq_to_deseq2(ps_water_red_phy, ~ commonName)
+
+# Define reference group
+diagdds$commonName = relevel(diagdds$commonName, ref = "Water")
+
+# Run the DESeq function
+diagdds = DESeq(diagdds)
+
+# Get the results and order by adj p-value.
+res = results(diagdds, alpha = alpha)
+res = res[order(res$padj, na.last = NA), ]
+summary(res)
+
+# These appear as ASVs but they truley represent the order that they belong too. I would like to find a way to change this name.
+keep_order = rownames(res[res$padj < alpha, ])
+
+# Make a phyloseq object with only the differential ASVs to get taxonomy info
+# Note: This phyloseq object will have the count values
+water_red_df_phys = prune_taxa(keep_order, ps_paired_data_PHYLA)
+
+# Make significance tab with taxa information
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(water_red_df_phys@tax_table[rownames(sigtab), ], "matrix"))
+
+# Display pretty version of significance table.
+sigtab |> 
+  select("Phylum", "log2FoldChange", "padj") |> 
+  mutate(log2FoldChange = formatC(log2FoldChange, format = "g", digits = 3),
+         padj = formatC(padj, format = "g", digits = 5))
+
+# simple plot
+# par(mfrow=c(3,3))
+for(x in 1:8){
+  plotCounts(diagdds, gene = keep_order[x], intgroup="commonName")
+}
+
+# Make a plot of these resutls
+theme_set(theme_bw())
+# Phylum order
+x = tapply(sigtab$log2FoldChange, sigtab$Phylum, function(x) max(x))
+x = sort(x, TRUE)
+sigtab$Phylum = factor(as.character(sigtab$Phylum), levels=names(x))
+
+ggplot(sigtab, aes(x=log2FoldChange, y=Phylum)) + 
+  geom_point(size=3) + 
+  labs(title = "Red Shiner vs Water",
+       subtitle = "Differential Phyla")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5)) -> red_water_phy
+red_water_phy
+
+# ggsave("figs/red_water_phy.png", red_water_phy, width = 7, height = 5, units = "in", dpi = 300)
+
+```
+
+### Sand Shiner vs Water: Differential Phyla
+
+```{r DESeq_phyla2}
+#| warning: false
+
+### SAND SHINER VS WATER ####
+
+# Create phyloseq subset with only Water and Red shiner samples
+ps_water_sand_phy = subset_ps_2_groups(ps = ps_paired_data_PHYLA,
+                                        variable = "commonName",
+                                        g1 = "Water",
+                                        g2 = "Sand shiner")
+
+# Convert phyloseq to DESeq2
+diagdds = phyloseq_to_deseq2(ps_water_sand_phy, ~ commonName)
+
+# Define reference group
+diagdds$commonName = relevel(diagdds$commonName, ref = "Water")
+
+# Run the DESeq function
+diagdds = DESeq(diagdds)
+
+# Get the results and order by adj p-value.
+res = results(diagdds, alpha = alpha)
+res = res[order(res$padj, na.last = NA), ]
+summary(res)
+
+# These appear as ASVs but they truley represent the order that they belong too. I would like to find a way to change this name.
+keep_order = rownames(res[res$padj < alpha, ])
+
+# Make a phyloseq object with only the differential ASVs to get taxonomy info
+# Note: This phyloseq object will have the count values
+water_sand_df_phys = prune_taxa(keep_order, ps_paired_data_PHYLA)
+
+# Make significance tab with taxa information
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(water_sand_df_phys@tax_table[rownames(sigtab), ], "matrix"))
+
+# Display pretty version of significance table.
+sigtab |> 
+  select("Phylum", "log2FoldChange", "padj") |> 
+  mutate(log2FoldChange = formatC(log2FoldChange, format = "g", digits = 3),
+         padj = formatC(padj, format = "g", digits = 5))
+
+# simple plot
+# par(mfrow=c(3,3))
+for(x in 1:10){
+  plotCounts(diagdds, gene = keep_order[x], intgroup="commonName")
+}
+
+# Make a plot of these resutls
+theme_set(theme_bw())
+# Phylum order
+x = tapply(sigtab$log2FoldChange, sigtab$Phylum, function(x) max(x))
+x = sort(x, TRUE)
+sigtab$Phylum = factor(as.character(sigtab$Phylum), levels=names(x))
+
+ggplot(sigtab, aes(x=log2FoldChange, y=Phylum)) + 
+  geom_point(size=3) + 
+  labs(title = "Sand Shiner vs Water",
+       subtitle = "Differential Phyla")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5)) -> sand_water_phy
+sand_water_phy
+
+# ggsave("figs/sand_water_phy.png", sand_water_phy, width = 7, height = 5, units = "in", dpi = 300)
+```
+### Sand Shiner vs Red Shiner: Differential Phyla
+```{r DESeq_phyla3}
+#| warning: false
+
+### SAND SHINER VS RED SHINER ####
+
+# Create phyloseq subset with only Water and Red shiner samples
+ps_red_sand_phy = subset_ps_2_groups(ps = ps_paired_data_PHYLA,
+                                        variable = "commonName",
+                                        g1 = "Red shiner",
+                                        g2 = "Sand shiner")
+
+# Convert phyloseq to DESeq2
+diagdds = phyloseq_to_deseq2(ps_red_sand_phy, ~ commonName)
+
+# Define reference group
+diagdds$commonName = relevel(diagdds$commonName, ref = "Red shiner")
+
+# Run the DESeq function
+diagdds = DESeq(diagdds)
+
+# Get the results and order by adj p-value.
+res = results(diagdds, alpha = alpha)
+res = res[order(res$padj, na.last = NA), ]
+summary(res)
+
+# These appear as ASVs but they truley represent the order that they belong too. I would like to find a way to change this name.
+keep_order = rownames(res[res$padj < alpha, ])
+
+# Make a phyloseq object with only the differential ASVs to get taxonomy info
+# Note: This phyloseq object will have the count values
+red_sand_df_phys = prune_taxa(keep_order, ps_paired_data_PHYLA)
+
+# Make significance tab with taxa information
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(red_sand_df_phys@tax_table[rownames(sigtab), ], "matrix"))
+
+# Display pretty version of significance table.
+sigtab |> 
+  select("Phylum", "log2FoldChange", "padj") |> 
+  mutate(log2FoldChange = formatC(log2FoldChange, format = "g", digits = 3),
+         padj = formatC(padj, format = "g", digits = 5))
+
+# simple plot
+par(mfrow=c(1,3))
+for(x in 1:1){
+  plotCounts(diagdds, gene = keep_order[x], intgroup="commonName")
+}
+
+# Make a plot of these resutls
+theme_set(theme_bw())
+# Phylum order
+x = tapply(sigtab$log2FoldChange, sigtab$Phylum, function(x) max(x))
+x = sort(x, TRUE)
+sigtab$Phylum = factor(as.character(sigtab$Phylum), levels=names(x))
+
+ggplot(sigtab, aes(x=log2FoldChange, y=Phylum)) + 
+  geom_point(size=3) + 
+  labs(title = "Sand Shiner vs Red Shiner",
+       subtitle = "Differential Phyla")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5)) -> sand_red_phy
+sand_red_phy
+
+# ggsave("figs/sand_red_phy.png", sand_red_phy, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+
+## Family Level
+
+### Red shiner vs Water
+```{r Deseq_fam1}
+#| warning: false
+
+### Red SHINER VS WATER ####
+
+# Create phyloseq subset with only Water and Red shiner samples
+ps_red_water_fam = subset_ps_2_groups(ps = ps_paired_data_FAMILY,
+                                        variable = "commonName",
+                                        g1 = "Red shiner",
+                                        g2 = "Water")
+
+# Convert phyloseq to DESeq2
+diagdds = phyloseq_to_deseq2(ps_red_water_fam, ~ commonName)
+
+# Define reference group
+diagdds$commonName = relevel(diagdds$commonName, ref = "Water")
+
+# Run the DESeq function
+diagdds = DESeq(diagdds)
+
+# Get the results and order by adj p-value.
+res = results(diagdds, alpha = alpha)
+res = res[order(res$padj, na.last = NA), ]
+summary(res)
+
+# These appear as ASVs but they truley represent the family that they belong too. I would like to find a way to change this name.
+keep_order = rownames(res[res$padj < alpha, ])
+
+# Make a phyloseq object with only the differential ASVs to get taxonomy info
+# Note: This phyloseq object will have the count values
+red_water_df_fam = prune_taxa(keep_order, ps_paired_data_FAMILY)
+
+# Make significance tab with taxa information
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(red_water_df_fam@tax_table[rownames(sigtab), ], "matrix"))
+
+# Display pretty version of significance table.
+sigtab |> 
+  select("Family", "log2FoldChange", "padj") -> sig_tab_output
+sig_tab_output
+
+write_csv(sig_tab_output, "red_water_fam_deseq.csv")
+
+for(x in 1:71){
+  plotCounts(diagdds, gene = keep_order[x], intgroup="commonName")
+}
+
+
+# Make a plot of these resutls
+theme_set(theme_bw())
+# Phylum order
+x = tapply(sigtab$log2FoldChange, sigtab$Family, function(x) max(x))
+x = sort(x, TRUE)
+sigtab$Family = factor(as.character(sigtab$Family), levels=names(x))
+
+ggplot(sigtab, aes(x=Family, y=log2FoldChange)) + 
+  geom_point(size=3) + 
+  labs(title = "Red Shiner vs Water",
+       subtitle = "Differential Families")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5)) -> red_water_fam
+red_water_fam
+
+# ggsave("figs/red_water_fam.png", red_water_fam, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+### Sand shiner vs Water
+```{r Deseq_fam2}
+#| warning: false
+
+### SAND SHINER VS WATER ####
+
+# Create phyloseq subset with only Water and Red shiner samples
+ps_sand_water_fam = subset_ps_2_groups(ps = ps_paired_data_FAMILY,
+                                        variable = "commonName",
+                                        g1 = "Sand shiner",
+                                        g2 = "Water")
+# Convert phyloseq to DESeq2
+diagdds = phyloseq_to_deseq2(ps_sand_water_fam, ~ commonName)
+
+# Define reference group
+diagdds$commonName = relevel(diagdds$commonName, ref = "Water")
+
+# Run the DESeq function
+diagdds = DESeq(diagdds)
+
+# Get the results and order by adj p-value.
+res = results(diagdds, alpha = alpha)
+res = res[order(res$padj, na.last = NA), ]
+summary(res)
+
+# These appear as ASVs but they truley represent the family that they belong too. I would like to find a way to change this name.
+keep_order = rownames(res[res$padj < alpha, ])
+
+# Make a phyloseq object with only the differential ASVs to get taxonomy info
+# Note: This phyloseq object will have the count values
+sand_water_df_fam = prune_taxa(keep_order, ps_paired_data_FAMILY)
+
+# Make significance tab with taxa information
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(sand_water_df_fam@tax_table[rownames(sigtab), ], "matrix"))
+
+# Display pretty version of significance table.
+sigtab |> 
+  select("Family", "log2FoldChange", "padj") -> sig_tab_output
+sig_tab_output
+
+write_csv(sig_tab_output, "sand_water_fam_deseq.csv")
+
+
+for(x in 1:55){
+  plotCounts(diagdds, gene = keep_order[x], intgroup="commonName")
+}
+
+# Make a plot of these resutls
+theme_set(theme_bw())
+# Phylum order
+x = tapply(sigtab$log2FoldChange, sigtab$Family, function(x) max(x))
+x = sort(x, TRUE)
+sigtab$Family = factor(as.character(sigtab$Family), levels=names(x))
+
+ggplot(sigtab, aes(x=Family, y=log2FoldChange)) + 
+  geom_point(size=3) + 
+  labs(title = "Sand Shiner vs Water",
+       subtitle = "Differential Families")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5)) -> sand_water_fam
+sand_water_fam
+
+# ggsave("figs/sand_water_fam.png", sand_water_fam, width = 7, height = 5, units = "in", dpi = 300)
+```
+### Look for patterns in family selection between species
+```{r}
+red_dif_fams = read_csv("red_water_fam_deseq.csv")
+sand_dif_fams = read_csv("sand_water_fam_deseq.csv")
+
+# These families were differentially expressed in both red shiners and sand shiners compared to the water
+
+red_dif_fams |> 
+  filter(red_dif_fams$Family %in% sand_dif_fams$Family) |> 
+  select(Family) -> keep_list
+# keep_list
+
+red_dif_fams |> 
+  filter(Family %in% keep_list$Family) |> 
+  mutate(log2FoldChange_red = log2FoldChange) |> 
+  select(Family, log2FoldChange_red) -> red_dif_fams2
+
+sand_dif_fams |> 
+  filter(Family %in% keep_list$Family) |> 
+  mutate(log2FoldChange_sand = log2FoldChange) |> 
+  select(Family, log2FoldChange_sand) -> sand_dif_fams2
+
+left_join(red_dif_fams2, sand_dif_fams2, by = "Family")
+
+```
+
+
+
+### Sand shiner vs Red shiner
+```{r Deseq_fam3}
+#| warning: false
+
+### SAND SHINER VS RED SHINER ####
+
+# Create phyloseq subset with only Water and Red shiner samples
+ps_sand_red_fam = subset_ps_2_groups(ps = ps_paired_data_FAMILY,
+                                        variable = "commonName",
+                                        g1 = "Sand shiner",
+                                        g2 = "Red shiner")
+
+# Convert phyloseq to DESeq2
+diagdds = phyloseq_to_deseq2(ps_sand_red_fam, ~ commonName)
+
+# Define reference group
+diagdds$commonName = relevel(diagdds$commonName, ref = "Red shiner")
+
+# Run the DESeq function
+diagdds = DESeq(diagdds)
+
+
+# Get the results and order by adj p-value.
+res = results(diagdds, alpha = alpha)
+res = res[order(res$padj, na.last = NA), ]
+summary(res)
+
+# These appear as ASVs but they truley represent the family that they belong too. I would like to find a way to change this name.
+keep_order = rownames(res[res$padj < alpha, ])
+
+# Make a phyloseq object with only the differential ASVs to get taxonomy info
+# Note: This phyloseq object will have the count values
+sand_red_df_fam = prune_taxa(keep_order, ps_paired_data_FAMILY)
+
+# Make significance tab with taxa information
+sigtab = res[which(res$padj < alpha), ]
+sigtab = cbind(as(sigtab, "data.frame"), as(sand_red_df_fam@tax_table[rownames(sigtab), ], "matrix"))
+
+# Display pretty version of significance table.
+sigtab |> 
+  select("Family", "log2FoldChange", "padj")-> sig_tab_output
+sig_tab_output
+
+write_csv(sig_tab_output, "sand_red_fam_deseq.csv")
+
+for(x in 1:3){
+  plotCounts(diagdds, gene = keep_order[x], intgroup="commonName")
+}
+
+# Make a plot of these resutls
+theme_set(theme_bw())
+# Phylum order
+x = tapply(sigtab$log2FoldChange, sigtab$Family, function(x) max(x))
+x = sort(x, TRUE)
+sigtab$Family = factor(as.character(sigtab$Family), levels=names(x))
+
+ggplot(sigtab, aes(x=Family, y=log2FoldChange)) + 
+  geom_point(size=3) + 
+  labs(title = "Sand Shiner vs Red Shiner",
+       subtitle = "Differential Families")+
+  theme(axis.text.x = element_text(angle = -90, hjust = 0, vjust=0.5)) -> sand_red_fam
+sand_red_fam
+
+# ggsave("figs/sand_red_fam.png", sand_red_fam, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+
+
+# Overview of abundant phyla
+
+```{r phyla_rel_abund1}
+#| warning: false
+#| message: false
+
+# Remove unwanted fish species from the ps_paired_data phyloseobject.size
+keeps = c("Water", "Red shiner", "Sand shiner")
+ps_paired_data_int = prune_samples(ps_paired_data@sam_data$commonName %in% keeps, ps_paired_data)
+ps_paired_data_int = prune_taxa(taxa_sums(ps_paired_data_int) > 0, ps_paired_data_int)
+
+# begin using microbiota process
+meco_dataset <- phyloseq2meco(ps_paired_data_int)
+meco_dataset$tidy_dataset()
+
+# define factors to be used in analysis
+meco_dataset$sample_table$commonName %<>% factor(., levels = c("Sand shiner", "Red shiner", "Water"))
+meco_dataset$sample_table$river %<>% factor(., levels = c("elkhorn", "mloup", "sloup"))
+
+meco_dataset$cal_abund()
+
+# Create trans_abund object
+t1 <- trans_abund$new(meco_dataset, taxrank = "Phylum", show = 0.001)
+
+# Make Bar plot
+t1$plot_bar(others_color = "grey70",
+            facet = c("commonName"),
+            xtext_keep = FALSE,
+            legend_text_italic = FALSE)+ 
+            theme(axis.title.y = element_text(size = 12),
+                  strip.text = element_text(size = 8,
+                                            angle = 0,
+                                            margin = margin(t = 2, r = 0, b = 0, l = 0, unit = "mm")),
+                  legend.text = element_text(size = 8))-> rel_abund_phy_all
+rel_abund_phy_all
+
+# ggsave("figs/rel_abund_phy_all.png", rel_abund_phy_all, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+
+
+
+```{r phy_rel_abund2}
+#| warning: false
+
+# manually define phyla colors
+phyla_list = c("Proteobacteria", "Cyanobacteria", "Firmicutes", "Actinobacteriota", "Bacteroidota", "Planctomycetota", "Verrucomicrobiota", "Desulfobacterota", "Chloroflexi", "Patescibacteria")
+
+phyla_colors = c("Patescibacteria" = "#6a3d9a", 
+                 "Chloroflexi" = "#cab2d6", 
+                 "Desulfobacterota" = "#ff7f00", 
+                 "Verrucomicrobiota" = "#fdbf6f", 
+                 "Planctomycetota" = "#e31a1c", 
+                 "Bacteroidota" = "#fb9a99",
+                 "Actinobacteriota" = "#33a02c",
+                 "Firmicutes" = "#b2df8a",
+                 "Cyanobacteria" = "#1f78b4",
+                 "Proteobacteria" = "#a6cee3")
+
+# SLOUP -----------------------------------------------------------------------------------------------
+
+# Keep only sloup river samples (water and fecal)
+ps_s_samples = subset_samples(ps_paired_data_int, ps_paired_data_int@sam_data$river == "sloup")
+
+# Change Sand shiner to Sand S. and Red Shiner to Red S.
+ps_s_samples@sam_data$commonName[ps_s_samples@sam_data$commonName == "Red shiner"] = "Red S."
+ps_s_samples@sam_data$commonName[ps_s_samples@sam_data$commonName == "Sand shiner"] = "Sand S."
+
+# begin using microbiota process
+meco_dataset <- phyloseq2meco(ps_s_samples)
+meco_dataset$tidy_dataset()
+# print(meco_dataset)
+
+# define factors to be used in analysis
+meco_dataset$sample_table$commonName %<>% factor(., levels = c("Sand S.", "Red S.", "Water"))
+
+meco_dataset$cal_abund()
+
+# Create trans_abund object
+t1 <- trans_abund$new(meco_dataset, taxrank = "Phylum", input_taxaname = phyla_list)
+
+# Make Bar plot
+t1$plot_bar(others_color = "grey70",
+            color_values = phyla_colors,
+            facet = "commonName",
+            xtext_keep = FALSE,
+            legend_text_italic = FALSE) +
+            labs(title = "Sloup") +
+            theme(axis.title.y = element_blank(),
+                  axis.text.y = element_blank(),
+                  strip.text = element_text(size = 8),
+                  legend.position = "none",
+                                    plot.margin = margin(t = .5,
+                                       b = 0, 
+                                       r = .5, 
+                                       l = 2, 
+                                       unit = "pt")) -> s_fig
+
+# MLOUP ---------------------------------------------------------------------------------
+
+# Keep only mloup river samples (water and fecal)
+ps_m_samples = subset_samples(ps_paired_data_int, ps_paired_data_int@sam_data$river == "mloup")
+
+# Change Sand shiner to Sand S. and Red Shiner to Red S.
+ps_m_samples@sam_data$commonName[ps_m_samples@sam_data$commonName == "Red shiner"] = "Red S."
+ps_m_samples@sam_data$commonName[ps_m_samples@sam_data$commonName == "Sand shiner"] = "Sand S."
+
+# begin using microbiota process
+meco_dataset <- phyloseq2meco(ps_m_samples)
+meco_dataset$tidy_dataset()
+# print(meco_dataset)
+
+# define factors to be used in analysis
+meco_dataset$sample_table$commonName %<>% factor(., levels = c("Sand S.", "Red S.", "Water"))
+
+# Create trans_abund object
+meco_dataset$cal_abund()
+t1 <- trans_abund$new(meco_dataset, taxrank = "Phylum", input_taxaname = phyla_list)
+
+# Make Bar plot
+t1$plot_bar(others_color = "grey70",
+            color_values = phyla_colors,
+            facet = "commonName",
+            xtext_keep = FALSE,
+            legend_text_italic = FALSE) +
+            labs(title = "Mloup") +
+            theme(axis.title.y = element_blank(),
+                  axis.text.y = element_blank(),
+                  strip.text = element_text(size = 8),
+                  legend.position = "none",
+                                    plot.margin = margin(t = .5,
+                                       b = 0, 
+                                       r = .5, 
+                                       l = 2, 
+                                       unit = "pt")) -> m_fig
+
+# ELKHORN -------------------------------------------------------------------------------
+
+# Keep only elkhorn river samples (water and fecal)
+ps_elk_samples = subset_samples(ps_paired_data_int, ps_paired_data_int@sam_data$river == "elkhorn")
+
+# Change Sand shiner to Sand S. and Red Shiner to Red S.
+ps_elk_samples@sam_data$commonName[ps_elk_samples@sam_data$commonName == "Red shiner"] = "Red S."
+ps_elk_samples@sam_data$commonName[ps_elk_samples@sam_data$commonName == "Sand shiner"] = "Sand S."
+
+# begin using microbiota process
+meco_dataset <- phyloseq2meco(ps_elk_samples)
+meco_dataset$tidy_dataset()
+# print(meco_dataset)
+
+# define factors to be used in analysis
+meco_dataset$sample_table$commonName %<>% factor(., levels = c("Sand S.", "Red S.", "Water"))
+
+# Create trans_abund object
+meco_dataset$cal_abund()
+t1 <- trans_abund$new(meco_dataset, taxrank = "Phylum", input_taxaname = phyla_list)
+
+# Make Bar plot
+t1$plot_bar(others_color = "grey70",
+            color_values = phyla_colors,
+            facet = "commonName",
+            xtext_keep = FALSE,
+            legend_text_italic = FALSE) +
+            labs(title = "Elkhorn") +
+            theme(axis.title.y = element_text(size = 8),
+                  axis.text.y = element_text(size = 8),
+                  strip.text = element_text(size = 8),
+                  legend.position = "none",
+                                    plot.margin = margin(t = .5,
+                                       b = 0, 
+                                       r = .5, 
+                                       l = 2, 
+                                       unit = "pt")) -> elk_fig
+
+# COMBINE INTO ONE FIGURE ----------------------------------------------------------
+ggarrange(elk_fig, m_fig, s_fig,
+          ncol=3, 
+          nrow=1, 
+          common.legend = TRUE,
+          legend="right")
+```
+
+```{r phy_rel_abund3}
+#| warning: false
+
+# manually define phyla colors
+phyla_list = c("Proteobacteria", "Cyanobacteria", "Firmicutes", "Actinobacteriota", "Bacteroidota", "Planctomycetota", "Verrucomicrobiota", "Desulfobacterota", "Chloroflexi", "Patescibacteria")
+
+phyla_colors = c("Patescibacteria" = "#6a3d9a", 
+                 "Chloroflexi" = "#cab2d6", 
+                 "Desulfobacterota" = "#ff7f00", 
+                 "Verrucomicrobiota" = "#fdbf6f", 
+                 "Planctomycetota" = "#e31a1c", 
+                 "Bacteroidota" = "#fb9a99",
+                 "Actinobacteriota" = "#33a02c",
+                 "Firmicutes" = "#b2df8a",
+                 "Cyanobacteria" = "#1f78b4",
+                 "Proteobacteria" = "#a6cee3")
+
+# SLOUP -----------------------------------------------------------------------------------------------
+
+# Keep only sloup river samples (water and fecal)
+ps_s_samples = subset_samples(ps_paired_data_int, ps_paired_data_int@sam_data$river == "sloup")
+
+# Change Sand shiner to Sand S. and Red Shiner to Red S.
+ps_s_samples@sam_data$commonName[ps_s_samples@sam_data$commonName == "Red shiner"] = "Red S."
+ps_s_samples@sam_data$commonName[ps_s_samples@sam_data$commonName == "Sand shiner"] = "Sand S."
+
+# begin using microbiota process
+meco_dataset <- phyloseq2meco(ps_s_samples)
+meco_dataset$tidy_dataset()
+# print(meco_dataset)
+
+# define factors to be used in analysis
+meco_dataset$sample_table$commonName %<>% factor(., levels = c("Sand S.", "Red S.", "Water"))
+
+meco_dataset$cal_abund()
+
+# Create trans_abund object
+t1 <- trans_abund$new(meco_dataset, taxrank = "Phylum", input_taxaname = phyla_list, groupmean = "commonName")
+
+# Make Bar plot
+t1$plot_bar(others_color = "grey70",
+            color_values = phyla_colors,
+            xtext_keep = TRUE,
+            legend_text_italic = FALSE) +
+            labs(title = "Sloup") +
+            theme(axis.title.y = element_text(size = 8),
+                  axis.text.y = element_text(size = 8),
+                  strip.text = element_text(size = 8),
+                  legend.position = "none",
+                                    plot.margin = margin(t = .5,
+                                       b = 0, 
+                                       r = .5, 
+                                       l = 2, 
+                                       unit = "pt")) -> s_fig
+
+# MLOUP ---------------------------------------------------------------------------------
+
+# Keep only mloup river samples (water and fecal)
+ps_m_samples = subset_samples(ps_paired_data_int, ps_paired_data_int@sam_data$river == "mloup")
+
+# Change Sand shiner to Sand S. and Red Shiner to Red S.
+ps_m_samples@sam_data$commonName[ps_m_samples@sam_data$commonName == "Red shiner"] = "Red S."
+ps_m_samples@sam_data$commonName[ps_m_samples@sam_data$commonName == "Sand shiner"] = "Sand S."
+
+# begin using microbiota process
+meco_dataset <- phyloseq2meco(ps_m_samples)
+meco_dataset$tidy_dataset()
+# print(meco_dataset)
+
+# define factors to be used in analysis
+meco_dataset$sample_table$commonName %<>% factor(., levels = c("Sand S.", "Red S.", "Water"))
+
+# Create trans_abund object
+meco_dataset$cal_abund()
+t1 <- trans_abund$new(meco_dataset, taxrank = "Phylum", input_taxaname = phyla_list, groupmean = "commonName")
+
+# Make Bar plot
+t1$plot_bar(others_color = "grey70",
+            color_values = phyla_colors,
+            xtext_keep = TRUE,
+            legend_text_italic = FALSE) +
+            labs(title = "Mloup") +
+            theme(axis.title.y = element_blank(),
+                  axis.text.y = element_blank(),
+                  strip.text = element_text(size = 8),
+                  legend.position = "none",
+                                    plot.margin = margin(t = .5,
+                                       b = 0, 
+                                       r = .5, 
+                                       l = 2, 
+                                       unit = "pt")) -> m_fig
+
+# ELKHORN -------------------------------------------------------------------------------
+
+# Keep only elkhorn river samples (water and fecal)
+ps_elk_samples = subset_samples(ps_paired_data_int, ps_paired_data_int@sam_data$river == "elkhorn")
+
+# Change Sand shiner to Sand S. and Red Shiner to Red S.
+ps_elk_samples@sam_data$commonName[ps_elk_samples@sam_data$commonName == "Red shiner"] = "Red S."
+ps_elk_samples@sam_data$commonName[ps_elk_samples@sam_data$commonName == "Sand shiner"] = "Sand S."
+
+# begin using microbiota process
+meco_dataset <- phyloseq2meco(ps_elk_samples)
+meco_dataset$tidy_dataset()
+# print(meco_dataset)
+
+# define factors to be used in analysis
+meco_dataset$sample_table$commonName %<>% factor(., levels = c("Sand S.", "Red S.", "Water"))
+
+# Create trans_abund object
+meco_dataset$cal_abund()
+t1 <- trans_abund$new(meco_dataset, taxrank = "Phylum", input_taxaname = phyla_list, groupmean = "commonName")
+
+# Make Bar plot
+t1$plot_bar(others_color = "grey70",
+            color_values = phyla_colors,
+            xtext_keep = TRUE,
+            legend_text_italic = FALSE) +
+            labs(title = "Elkhorn") +
+            theme(axis.title.y = element_blank(),
+                  axis.text.y = element_blank(),
+                  strip.text = element_text(size = 8),
+                  legend.position = "none",
+                                    plot.margin = margin(t = .5,
+                                       b = 0, 
+                                       r = .5, 
+                                       l = 2, 
+                                       unit = "pt")) -> elk_fig
+
+# COMBINE INTO ONE FIGURE ----------------------------------------------------------
+ggarrange(s_fig, m_fig, elk_fig, 
+          ncol=3, 
+          nrow=1, 
+          common.legend = TRUE,
+          legend="bottom") -> rel_abund_phy_means
+rel_abund_phy_means
+
+# ggsave("figs/rel_abund_phy_means.png", rel_abund_phy_means, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+
+
+
+# Overview of abundant families
+```{r fam_rel_abund}
+# begin using microbiota process
+meco_dataset <- phyloseq2meco(ps_paired_data_int)
+meco_dataset$tidy_dataset()
+
+# define factors to be used in analysis
+meco_dataset$sample_table$commonName %<>% factor(., levels = c("Sand shiner", "Red shiner", "Water"))
+meco_dataset$sample_table$river %<>% factor(., levels = c("elkhorn", "mloup", "sloup"))
+
+meco_dataset$cal_abund()
+
+# Create trans_abund object
+t1 <- trans_abund$new(meco_dataset, taxrank = "Family", ntaxa = 15)
+
+shades = c("#a6cee3",
+           "#1f78b4",
+           "#074c70",
+           "#b2df8a",
+           "#33a02c",
+           "#295205",
+           "#fb9a99",
+           "#e31a1c",
+           "#5e0e0d",
+           "#fdbf6f",
+           "#f29c07",
+           "#ff7f00",
+           "#cab2d6",
+           "#6a3d9a",
+           "#411159",
+           "#ffff99",
+           "#fafa07",
+           "#b15928",
+           "#572409")
+
+# Make Bar plot
+t1$plot_bar(others_color = "grey70",
+            facet = c("commonName"),
+            xtext_keep = FALSE,
+            color_values = shades,
+            legend_text_italic = FALSE) +
+            theme(axis.title.y = element_text(size = 12),
+                  strip.text = element_text(size = 8,
+                                            angle = 0,
+                                            margin = margin(t = 2, r = 0, b = 0, l = 0, unit = "mm")),
+                  legend.text = element_text(size = 8),
+                  legend.position = "right") -> rel_abund_fam_all
+rel_abund_fam_all
+            
+# ggsave("figs/rel_abund_fam_all.png", rel_abund_fam_all, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+# Core Microbiomes
+
+## Taxonomic resolution
+
+```{r taxonomic resolution}
+
+# Extract taxa tables from phyloseq objects
+taxa_tab = as.data.frame(ps_norm@tax_table)
+
+
+# Determine taxonomic resolution for water and fish fecal samples
+tax_reso = tibble(phylum = (dim(taxa_tab)[1] - sum(is.na(taxa_tab$Phylum))) / dim(taxa_tab)[1],
+                  class = (dim(taxa_tab)[1] - sum(is.na(taxa_tab$Class))) / dim(taxa_tab)[1],
+                  order = (dim(taxa_tab)[1] - sum(is.na(taxa_tab$Order))) / dim(taxa_tab)[1],
+                  family = (dim(taxa_tab)[1] - sum(is.na(taxa_tab$Family))) / dim(taxa_tab)[1],
+                  genus = (dim(taxa_tab)[1] - sum(is.na(taxa_tab$Genus))) / dim(taxa_tab)[1],
+                  species = (dim(taxa_tab)[1] - sum(is.na(taxa_tab$Species))) / dim(taxa_tab)[1])
+tax_reso
+```
+
+## Core Definition and Function writing
+
+```{r define_coremicrobiome}
+# Set the % samples an ASV must be present in to be considered part of the core microbiome
+percent = 0.80
+```
+
+```{r core_microbiome_function}
+
+# This function finds the core microbiome of a group.
+    # ps = a phyloseq object containing the data. Ensure that abundances are count data not relative proportion
+    # variable = a categorical variable in the phyloseq sample data.
+    # g = the level of variable that you wish to find the core microbiome of.
+    # perc = the percent of samples that a ASV must be present in to be considered part of the core Microbiome.
+  
+
+find_core = function(ps, variable, g, perc){
+  # create data subset with only group samples and ASVs that are present in those samples
+  data = prune_samples(ps@sam_data[[variable]] == g, ps)
+  data = prune_taxa(speciesSums(data) > 0, data)
+  
+  # find core
+  core_microbiome = apply(X = otu_table(data),
+                       MARGIN = ifelse(taxa_are_rows(data), yes = 1, no = 2),
+                       FUN = function(x){sum(x > 0)})
+  core_microbiome <- data.frame(Prevalence=core_microbiome, TotalAbundance=taxa_sums(data))
+
+  sample_minimum = dim(data@otu_table)[2] * perc
+  
+  core <- rownames(core_microbiome)[core_microbiome$Prevalence >= sample_minimum]
+  
+  core1 <- prune_taxa(core, data)
+  
+  coverage = (sum(otu_table(core1)) / sum(otu_table(data))) * 100
+  
+  # compile function output
+  return(list(core1 = core1,
+              coverage = coverage,
+              prev_abund = core_microbiome))
+}
+
+# test = find_core(ps = ps_paired_data, variable = "commonName", g = "Water", perc = percent)
+# test
+# test$core1@tax_table[ , c("Phylum", "Genus", "Species")]
+# test$coverage
+
+```
+
+## Water Core
+
+```{r core_water}
+core_water = find_core(ps = ps_paired_data, variable = "commonName", g = "Water", perc = percent)
+
+core_water$core1@tax_table[ , c("Phylum", "Genus", "Species")]
+core_water$coverage
+
+write.csv(core_water$core1@tax_table,
+          file = "water_core.csv",
+          row.names = TRUE,
+          col.names = TRUE)
+# Heatmap Showing the water core microbiome ASVS across all sample types
+water_core = prune_taxa(row.names(core_water$core1@otu_table), ps_norm)
+meta = as.data.frame(ps_norm@sam_data)
+
+water_core_otu = as.data.frame(water_core@otu_table)
+head(water_core_otu)
+water_core_otu |> 
+  tibble::as_tibble(rownames = "ASV") |> 
+  pivot_longer(cols = 2:51,
+               names_to = "sample",
+               values_to = "rel_abund") -> intermediate_table
+
+intermediate_table = left_join(intermediate_table, meta, by = join_by(sample == sampleID))
+
+intermediate_table |> 
+  mutate(rel_abund = log(rel_abund, base = 10))-> water_core_longer
+
+min(water_core_longer$rel_abund)
+# get order of samples to group by sample type
+meta |> 
+  tibble::as_tibble() |> 
+  arrange(commonName) -> sample_order
+# Order asvs based on plot_heatmap order
+asv_order = c(282, 436, 94, 102, 44, 122, 531, 288, 4, 184, 172, 461, 343, 504, 388, 66, 157, 59, 14, 142, 84, 39, 82, 51, 41, 261, 29, 316, 88, 81, 53, 18, 47, 286, 154, 2, 331, 127, 183, 112, 242, 11, 70, 54, 156, 32, 220, 65, 214, 442, 173, 58, 218, 152, 215, 20, 188, 107, 312, 60, 22, 74, 491, 72, 5, 64, 42, 253, 344, 116, 31, 96, 3, 360, 421, 378, 103, 387, 193, 333, 12, 176, 40, 263, 113, 19, 9, 73, 178, 598, 46, 705, 419, 93, 158, 71, 125, 414, 85, 377, 997, 824, 327, 726)
+asv_order = paste0("ASV_", as.character(asv_order))
+
+asv_order_df = data.frame()
+
+
+ggplot(data = water_core_longer)+
+  geom_tile(aes(x = factor(sample, level = sample_order$sampleID),
+                y = factor(ASV, level = asv_order),
+                fill = rel_abund))+
+  labs(x = "Sample",
+       y = "ASV",
+       fill = "")+
+  scale_x_discrete(labels = sample_order$commonName)+
+  theme(axis.text.x = element_text(angle = 90,
+                                   size = 8),
+        axis.text.y = element_text(size = 3.75)) -> water_core_heatmap
+water_core_heatmap
+
+# ggsave("figs/water_core_heatmap.png", water_core_heatmap, width = 7, height = 7, units = "in", dpi = 300)
+
+
+plot_heatmap(water_core, 
+             sample.label = "commonName",
+             sample.order = "commonName")+
+  labs(y = "ASV",
+       fill = "Relative\nAbundance") -> p
+
+p$scales$scales[[1]]$name = "Sample Type"
+p
+
+# ggsave("figs/plot_heatmap.png", p, dpi = 300)
+
+```
+
+```{r test}
+head(water_core_longer)
+# core_water$core1@tax_table = table to associate asv_x with taxonomy info
+water_taxtab = as.data.frame(core_water$core1@tax_table)
+water_taxtab$ASV = row.names(water_taxtab)
+
+asv_order_df = data.frame(ASV = asv_order)
+
+sorted_tax_tab = left_join(x = asv_order_df,
+                           y = water_taxtab,
+                           by = "ASV")
+write.csv(sorted_tax_tab, file = "sorted_for_fig_water_core_tax.csv", col.names = TRUE)
+
+ggplot(data = water_core_longer)+
+  geom_tile(aes(x = sample,
+                y = factor(ASV, level = asv_order),
+                fill = rel_abund))+
+  labs(x = "Sample",
+       y = "ASV",
+       fill = "")+
+  scale_y_discrete(labels = sorted_tax_tab$Family)+
+  facet_wrap(~ commonName,
+             ncol = 3,
+             strip.position = "bottom",
+             scales = "free_x")+
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 3.75),
+        panel.spacing = unit(.1,"lines")) -> water_core_heatmap
+water_core_heatmap
+
+# ggsave("figs/water_core_heatmap.png", water_core_heatmap, width = 11, height = 9, units = "in", dpi = 300)
+
+## Create a version with ASVs sorted by phylum
+water_taxtab |> 
+  arrange(Phylum) -> phy_sorted_tax
+
+write.csv(phy_sorted_tax,
+          file = "phy_sorted_water_core.csv",
+          col.names = TRUE)
+
+ggplot(data = water_core_longer)+
+  geom_tile(aes(x = sample,
+                y = factor(ASV, level = phy_sorted_tax$ASV),
+                fill = rel_abund))+
+  labs(x = "Sample",
+       y = "ASV",
+       fill = "")+
+  scale_y_discrete(labels = phy_sorted_tax$Family)+
+  facet_wrap(~ commonName,
+             ncol = 3,
+             strip.position = "bottom",
+             scales = "free_x")+
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 3.75),
+        panel.spacing = unit(.1,"lines")) -> water_core_heatmap_phy_sort
+water_core_heatmap_phy_sort
+
+# ggsave("figs/water_core_heatmap_phy_sort.png", water_core_heatmap_phy_sort, width = 11, height = 9, units = "in", dpi = 300)
+```
+
+
+
+## Red Shiner Core
+
+```{r core_red}
+core_red = find_core(ps = ps_paired_data, variable = "commonName", g = "Red shiner", perc = percent)
+
+core_red$core1@tax_table[ , c("Phylum", "Genus", "Species")]
+core_red$coverage
+
+write.csv(core_red$core1@tax_table,
+          file = "red_core.csv",
+          row.names = TRUE,
+          col.names = TRUE)
+
+# Heatmap Showing the Red core microbiome ASVS across all sample types
+red_core = prune_taxa(row.names(core_red$core1@otu_table), ps_norm)
+
+plot_heatmap(red_core, 
+             sample.label = "commonName",
+             sample.order = "commonName")+
+  labs(y = "ASV",
+       fill = "Relative\nAbundance") -> p
+p$scales$scales[[1]]$name = "Sample Type"
+p
+# ggsave("figs/plot_heatmap_red.png", p, dpi = 300)
+
+# Heatmap Showing the water core microbiome ASVS across all sample types
+red_core = prune_taxa(row.names(core_red$core1@otu_table), ps_norm)
+
+red_core_otu = as.data.frame(red_core@otu_table)
+head(red_core_otu )
+red_core_otu |> 
+  tibble::as_tibble(rownames = "ASV") |> 
+  pivot_longer(cols = 2:51,
+               names_to = "sample",
+               values_to = "rel_abund") -> intermediate_table
+
+intermediate_table = left_join(intermediate_table, meta, by = join_by(sample == sampleID))
+
+intermediate_table |> 
+  mutate(rel_abund = log(rel_abund, base = 10))-> red_core_longer
+# get order of samples to group by sample type
+meta |> 
+  tibble::as_tibble() |> 
+  arrange(commonName) -> sample_order
+# order of asvs
+asv_order = c(1, 36, 66, 14)
+asv_order = paste0("ASV_", as.character(asv_order))
+# plot heatmap
+ggplot(data = red_core_longer)+
+  geom_tile(aes(x = factor(sample, level = sample_order$sampleID),
+                y = factor(ASV, level = asv_order),
+                fill = rel_abund))+
+  labs(x = "Sample",
+       y = "ASV",
+       fill = "")+
+  scale_x_discrete(labels = sample_order$commonName)+
+  theme(axis.text.x = element_text(angle = 90,
+                                   size = 8),
+        axis.text.y = element_text(size = 3.75)) -> red_core_heatmap
+red_core_heatmap
+
+# ggsave("figs/red_core_heatmap.png", red_core_heatmap, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+```{r heatmap2}
+head(red_core_longer)
+# core_red$core1@tax_table = table to associate asv_x with taxonomy info
+red_taxtab = as.data.frame(core_red$core1@tax_table)
+red_taxtab$ASV = row.names(red_taxtab)
+
+## Create a version with ASVs sorted by phylum
+red_taxtab |> 
+  arrange(Phylum) -> phy_sorted_tax
+
+write.csv(phy_sorted_tax,
+          file = "phy_sorted_red_core.csv",
+          col.names = TRUE)
+
+ggplot(data = red_core_longer)+
+  geom_tile(aes(x = sample,
+                y = factor(ASV, level = phy_sorted_tax$ASV),
+                fill = rel_abund))+
+  labs(x = "Sample",
+       y = "ASV",
+       fill = "")+
+  scale_y_discrete(labels = phy_sorted_tax$Family)+
+  facet_wrap(~ commonName,
+             ncol = 3,
+             strip.position = "bottom",
+             scales = "free_x")+
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 3.75),
+        panel.spacing = unit(.1,"lines")) -> red_core_heatmap_phy_sort
+red_core_heatmap_phy_sort
+
+# ggsave("figs/red_core_heatmap_edit.png", red_core_heatmap_phy_sort, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+
+## Sand Shiner Core
+
+```{r core_sand}
+core_sand = find_core(ps = ps_paired_data, variable = "commonName", g = "Sand shiner", perc = percent)
+
+core_sand$core1@tax_table[ , c("Phylum", "Genus", "Species")]
+core_sand$coverage
+
+write.csv(core_sand$core1@tax_table,
+          file = "sand_core.csv",
+          row.names = TRUE,
+          col.names = TRUE)
+
+# Heatmap Showing the Red core microbiome ASVS across all sample types
+sand_core = prune_taxa(row.names(core_sand$core1@otu_table), ps_norm)
+
+plot_heatmap(sand_core, 
+             sample.label = "commonName",
+             sample.order = "commonName")+
+  labs(y = "ASV",
+       fill = "Relative\nAbundance") -> p
+p$scales$scales[[1]]$name = "Sample Type"
+p
+
+# ggsave("figs/plot_heatmap_sand.png", p, dpi = 300)
+
+
+# Heatmap Showing the water core microbiome ASVS across all sample types
+sand_core = prune_taxa(row.names(core_sand$core1@otu_table), ps_norm)
+
+sand_core_otu = as.data.frame(sand_core@otu_table)
+head(sand_core_otu )
+sand_core_otu |> 
+  tibble::as_tibble(rownames = "ASV") |> 
+  pivot_longer(cols = 2:51,
+               names_to = "sample",
+               values_to = "rel_abund") -> intermediate_table
+
+intermediate_table = left_join(intermediate_table, meta, by = join_by(sample == sampleID))
+
+intermediate_table |> 
+  mutate(rel_abund = log(rel_abund, base = 10))-> sand_core_longer
+
+# get order of samples to group by sample type
+meta |> 
+  tibble::as_tibble() |> 
+  arrange(commonName) -> sample_order
+# order of asvs
+asv_order = c(114, 61, 1, 36, 66, 142, 14)
+asv_order = paste0("ASV_", as.character(asv_order))
+# plot heatmap
+ggplot(data = sand_core_longer)+
+  geom_tile(aes(x = factor(sample, level = sample_order$sampleID),
+                y = factor(ASV, level = asv_order),
+                fill = rel_abund))+
+  labs(x = "Sample",
+       y = "ASV",
+       fill = "")+
+  scale_x_discrete(labels = sample_order$commonName)+
+  theme(axis.text.x = element_text(angle = 90,
+                                   size = 8),
+        axis.text.y = element_text(size = 3.75)) -> sand_core_heatmap
+sand_core_heatmap
+
+# ggsave("figs/sand_core_heatmap.png", sand_core_heatmap, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+```{r heatmap2_sand}
+head(sand_core_longer)
+# core_red$core1@tax_table = table to associate asv_x with taxonomy info
+sand_taxtab = as.data.frame(core_sand$core1@tax_table)
+sand_taxtab$ASV = row.names(sand_taxtab)
+
+## Create a version with ASVs sorted by phylum
+sand_taxtab |> 
+  arrange(Phylum) -> phy_sorted_tax
+
+write.csv(phy_sorted_tax,
+          file = "phy_sorted_sand_core.csv",
+          col.names = TRUE)
+
+ggplot(data = sand_core_longer)+
+  geom_tile(aes(x = sample,
+                y = factor(ASV, level = phy_sorted_tax$ASV),
+                fill = rel_abund))+
+  labs(x = "Sample",
+       y = "ASV",
+       fill = "")+
+  scale_y_discrete(labels = phy_sorted_tax$Family)+
+  facet_wrap(~ commonName,
+             ncol = 3,
+             strip.position = "bottom",
+             scales = "free_x")+
+  theme(axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 3.75),
+        panel.spacing = unit(.1,"lines")) -> sand_core_heatmap_phy_sort
+sand_core_heatmap_phy_sort
+# ggsave("figs/sand_core_heatmap_edit.png", sand_core_heatmap_phy_sort, width = 7, height = 5, units = "in", dpi = 300)
+```
+
+
+```{r combine_heatmaps}
+test = ggarrange(water_core_heatmap_phy_sort, red_core_heatmap_phy_sort, sand_core_heatmap_phy_sort,
+          ncol = 1,
+          nrow = 3,
+          heights = c(5,1,1))
+
+# ggsave("figs/combined_heatmap.png", test, width = 7, height = 15, units = "in", dpi = 300)
+```
+
+
+# Shared and Unique Taxa
+
+```{r venn_diagram}
+#| warning: false
+
+# Make function to create data subsets including samples of a specific type and removing ASVs that are not present in samples of that type.
+subset_ps = function(ps, variable, g){
+  data = prune_samples(ps@sam_data[[variable]] == g, ps)
+  data = prune_taxa(speciesSums(data) > 0, data)
+  return(data)
+}
+
+# Create data subsets
+water = subset_ps(ps = ps_paired_data,
+                  variable = "commonName",
+                  g = "Water")
+water_list = row.names(water@otu_table)
+
+red = subset_ps(ps = ps_paired_data,
+               variable = "commonName",
+               g = "Red shiner")
+red_list = row.names(red@otu_table)
+
+sand = subset_ps(ps = ps_paired_data,
+               variable = "commonName",
+               g = "Sand shiner")
+sand_list = row.names(sand@otu_table)
+
+# Create list of the group data
+ASV_ven = list(Water = water_list,
+               `Red Shiner` = red_list,
+               `Sand Shiner` = sand_list)
+
+# Plot venn diagram
+venndiagram = ggvenn(ASV_ven, c("Water", "Red Shiner", "Sand Shiner"),
+       text_size = 3,
+       fill_color = c("#c5f9d7", "#f27a7d","#f7d486"),
+       stroke_size = .5)+
+  theme(panel.background = element_rect(fill = "white"))
+venndiagram
+
+# ggsave("figs/venndiagram.png", venndiagram, dpi = 300)
+```
+
+```{r venn_diagram2}
+
+water_data = tibble("asv" = row.names(water@otu_table),
+                    "abundance" = taxa_sums(water))
+red_data = tibble("asv" = row.names(red@otu_table),
+                  "abundance" = taxa_sums(red))
+sand_data = tibble("asv" = row.names(sand@otu_table),
+                   "abundance" = taxa_sums(sand))
+
+## RED SHINER TO WATER ##
+# get phyloseq with only water and red samples/taxa
+water_red = subset_ps_2_groups(ps = ps_paired_data,
+                   variable = "commonName",
+                   g1 = "Water",
+                   g2 = "Red shiner")
+
+# list of ASVs found in water but not Red shiners
+water_only = row.names(water_red@otu_table)[(row.names(water_red@otu_table) %in% water_data$asv) & (!row.names(water_red@otu_table) %in% red_data$asv)]
+
+# list of ASVs found in Red shiners but not in water
+red_only = row.names(water_red@otu_table)[(row.names(water_red@otu_table) %in% red_data$asv) & (!row.names(water_red@otu_table) %in% water_data$asv)]
+
+# list of ASVs found in both Red shiners and water
+water_and_red = row.names(water_red@otu_table)[(row.names(water_red@otu_table) %in% red_data$asv) & (row.names(water_red@otu_table) %in% water_data$asv)]
+
+# find the percentage of reads sourced from each category.
+water_red_asvs = tibble("asv" = row.names(water_red@otu_table),
+                        "abundance" = taxa_sums(water_red)) |> 
+  mutate("group" = case_when(asv %in% water_only ~ "water",
+                             asv %in% red_only ~ "red",
+                             asv %in% water_and_red ~ "both"),
+         "total_reads" = sum(abundance)) |> 
+  group_by(group) |> 
+  summarise("group_sum" = sum(abundance)) |> 
+  mutate("total_reads" = sum(group_sum),
+         "%reads" = group_sum / total_reads)
+
+## JUST FIND THE NUMBERS FOR THE THREE WAY VEN DIAGRAM ##
+
+# list of ASVs found in water but not sand shiners or red shiners
+water_only = row.names(ps_paired_data_int@otu_table)[(row.names(ps_paired_data_int@otu_table) %in% water_data$asv) & (!row.names(ps_paired_data_int@otu_table) %in% red_data$asv) & (!row.names(ps_paired_data_int@otu_table) %in% sand_data$asv)]
+# table(water_only %in% water_data$asv)
+# table(water_only %in% red_data$asv)
+# table(water_only %in% sand_data$asv)
+
+# list of ASVs found in Red shiners but not in water or sand shiners
+red_only = row.names(ps_paired_data_int@otu_table)[(row.names(ps_paired_data_int@otu_table) %in% red_data$asv) & (!row.names(ps_paired_data_int@otu_table) %in% water_data$asv) & (!row.names(ps_paired_data_int@otu_table) %in% sand_data$asv)]
+# table(red_only %in% red_data$asv)
+# table(red_only %in% water_data$asv)
+# table(red_only %in% sand_data$asv)
+
+# list of ASVs found in Sand shiners but not in water or red shiners
+sand_only = row.names(ps_paired_data_int@otu_table)[(row.names(ps_paired_data_int@otu_table) %in% sand_data$asv) & (!row.names(ps_paired_data_int@otu_table) %in% water_data$asv) & (!row.names(ps_paired_data_int@otu_table) %in% red_data$asv)]
+# table(sand_only %in% sand_data$asv)
+# table(sand_only %in% water_data$asv)
+# table(sand_only %in% red_data$asv)
+
+# list of ASVs found in Water and Red shiners but NOT sand shiners
+water_red_only = row.names(ps_paired_data_int@otu_table)[(row.names(ps_paired_data_int@otu_table) %in% water_data$asv) & (row.names(ps_paired_data_int@otu_table) %in% red_data$asv) & (!row.names(ps_paired_data_int@otu_table) %in% sand_data$asv)]
+# table(water_red_only %in% water_data$asv)
+# table(water_red_only %in% red_data$asv)
+# table(water_red_only %in% sand_data$asv)
+
+# list of ASVs found in Red shiners and Sand shiners but NOT in water
+red_sand_only = row.names(ps_paired_data_int@otu_table)[(row.names(ps_paired_data_int@otu_table) %in% red_data$asv) & (row.names(ps_paired_data_int@otu_table) %in% sand_data$asv) & (!row.names(ps_paired_data_int@otu_table) %in% water_data$asv)]
+# table(red_sand_only %in% red_data$asv)
+# table(red_sand_only %in% sand_data$asv)
+# table(red_sand_only %in% water_data$asv)
+
+# list of ASVs found in Sand shiners and Water but NOT in Red shiners
+water_sand_only = row.names(ps_paired_data_int@otu_table)[(row.names(ps_paired_data_int@otu_table) %in% water_data$asv) & (row.names(ps_paired_data_int@otu_table) %in% sand_data$asv) & (!row.names(ps_paired_data_int@otu_table) %in% red_data$asv)]
+# table(water_sand_only %in% water_data$asv)
+# table(water_sand_only %in% sand_data$asv)
+# table(water_sand_only %in% red_data$asv)
+
+# list of ASVs found in Sand shiners, Red shiners, and Water
+water_red_sand_only = row.names(ps_paired_data_int@otu_table)[(row.names(ps_paired_data_int@otu_table) %in% water_data$asv) & (row.names(ps_paired_data_int@otu_table) %in% red_data$asv) & (row.names(ps_paired_data_int@otu_table) %in% sand_data$asv)]
+# table(water_red_sand_only %in% water_data$asv)
+# table(water_red_sand_only %in% red_data$asv)
+# table(water_red_sand_only %in% sand_data$asv)
+
+
+# find the percentage of reads sourced from each category.
+percent_reads_venn = tibble("asv" = row.names(ps_paired_data_int@otu_table),
+                            "abundance" = taxa_sums(ps_paired_data_int)) |> 
+  mutate("group" = case_when(asv %in% water_only ~ "water",
+                             asv %in% red_only ~ "red",
+                             asv %in% sand_only ~ "sand",
+                             asv %in% water_red_only ~ "water_red",
+                             asv %in% red_sand_only ~ "red_sand",
+                             asv %in% water_sand_only ~ "water_sand",
+                             asv %in% water_red_sand_only ~ "water_red_sand")) |> 
+  group_by(group) |> 
+  summarise("group_sum" = sum(abundance)) |> 
+  mutate("total_reads" = sum(group_sum),
+         "%reads" = group_sum / total_reads)
+
+percent_reads_venn
+```
+
+
+```{r overlap_analysis}
+# function for % overlap between two groups
+perc_overlap = function(a,b){
+  percent = table(a %in% b)["TRUE"] / length(a)
+  return(percent)
+}
+
+# % total overlap between red shiner and water
+# length(unique(merged)) shows all the values unique to red shiners, unique to the river, and 1 representation of each value in both. Thus the overlap is length(mrged) - length(unique(mrged))
+mrged = c(red_list, water_list)
+red_water_tot = (length(mrged) - length(unique(mrged))) / (length(mrged))
+
+# % red shiner microbes found in water
+red_in_water = perc_overlap(a = red_list,
+                            b = water_list)
+
+# % water microbes found in red shiner
+water_in_red = perc_overlap(a = water_list,
+                            b = red_list)
+
+# % red shiner core found in water
+
+#----------------------------------------------------------------------------
+
+# % total overlap between sand shiner and water
+mrged = c(sand_list, water_list)
+sand_water_tot = (length(mrged) - length(unique(mrged))) / (length(mrged))
+
+# % sand shiner microbes found in water
+sand_in_water = perc_overlap(a = sand_list,
+                             b = water_list)
+
+# % water microbes found in sand shiner
+water_in_sand = perc_overlap(a = water_list,
+                             b = sand_list)
+
+# % sand shiner core found in water
+
+#----------------------------------------------------------------------------
+
+overlap_data = data.frame(`Species` = c("Red Shiner", "Sand Shiner"),
+                          `% Total Water - Fish overlap` = c(red_water_tot, sand_water_tot),
+                          `% Fish microbes in Water` = c(red_in_water, sand_in_water),
+                          `% Water microbes in Fish` = c(water_in_red, water_in_sand))
+
+```
+
+| Species     | \% Fish ASVs found in water | \% Water ASVs found in Fish | \% Total overlap between fish and water | \% Core fish microbes found in water |
+|---------------|---------------|---------------|---------------|---------------|
+| Red Shiner  | `r red_in_water`            | `r water_in_red`            | `r red_water_tot`                       |                                      |
+| Sand Shiner | `r sand_in_water`           | `r water_in_sand`           | `r sand_water_tot`                      |                                      |
+
+```{r dataset_station_all_summer}
+#| warning: false
+
+# create a data set including all water samples taken at the paired data set station throughout the summer
+
+keep_fish = ps_paired_data@sam_data$sampleID[ps_paired_data@sam_data$sampleType == "fecal"]
+
+keep_station = c("southstpaul", "ravenna", "presseywma", "hwy183", "oneil", "sartoria", "boelus")
+
+# Keep all water samples from stations in the final analysis and all fecal samples
+ps_station_seasonal = prune_samples((ps_total@sam_data$sampleType == "water" & ps_total@sam_data$station %in% keep_station) | ps_total@sam_data$sampleType == "fecal", ps_total)
+
+# Keep water samples as before and keep only fecal samples included in the final analysis.
+ps_station_seasonal = prune_samples(ps_station_seasonal@sam_data$sampleType == "water" | (ps_station_seasonal@sam_data$sampleType == "fecal" & ps_station_seasonal@sam_data$sampleID %in% keep_fish), ps_station_seasonal)
+
+
+#----------------------------------------------------------------
+
+# create a data set including water samples taken throughout Nebraska and throughout the summer but only the fecal samples included in the final analysis.
+
+ps_seasonal_spatial = prune_samples(ps_total@sam_data$sampleType == "water" | (ps_total@sam_data$sampleType == "fecal" & ps_total@sam_data$sampleID %in% keep_fish), ps_total)
+```
+
+```{r compare}
+#| warning: false
+
+# lists of ASVS for same stations + wider timeframe
+water_station_seasonal = subset_ps(ps = ps_station_seasonal,
+                                   variable = "sampleType",
+                                   g = "water")
+water_station_seasonal = row.names(water_station_seasonal@otu_table)
+
+red_station_seasonal = subset_ps(ps = ps_station_seasonal,
+                                 variable = "commonName",
+                                 g = "Red shiner")
+red_station_seasonal = row.names(red_station_seasonal@otu_table)
+
+sand_station_seasonal = subset_ps(ps = ps_station_seasonal,
+                                  variable = "commonName",
+                                  g = "Sand shiner")
+sand_station_seasonal = row.names(sand_station_seasonal@otu_table)
+
+# lists of ASVs for all water samples and current fecal samples
+water_seasonal_spatial = subset_ps(ps = ps_seasonal_spatial,
+                                   variable = "sampleType",
+                                   g = "water")
+water_seasonal_spatial = row.names(water_seasonal_spatial@otu_table)
+
+red_seasonal_spatial = subset_ps(ps = ps_seasonal_spatial,
+                                 variable = "commonName",
+                                 g = "Red shiner")
+red_seasonal_spatial = row.names(red_seasonal_spatial@otu_table)
+
+sand_seasonal_spatial = subset_ps(ps = ps_seasonal_spatial,
+                                  variable = "commonName",
+                                  g = "Sand shiner")
+sand_seasonal_spatial = row.names(sand_seasonal_spatial@otu_table)
+
+#------------------------------------------------------------------
+# PAIRED DATA 
+# % red shiner microbes found in water
+red_in_water = perc_overlap(a = red_list,
+                            b = water_list)
+# % sand shiner microbes found in water
+sand_in_water = perc_overlap(a = sand_list,
+                             b = water_list)
+
+# INCLUDE OTHER WATER SAMPLES AT THE SAME STATIONS THROUGH TIME
+set2_red_in_water = perc_overlap(a = red_station_seasonal,
+                                 b = water_station_seasonal)
+
+set2_sand_in_water = perc_overlap(a = sand_station_seasonal,
+                                  b = water_station_seasonal)
+
+# INCLUED WATER SAMPLES TAKEN AT ALL LOCATIONS AND ALL DATES IN 2019
+set3_red_in_water = perc_overlap(a = red_seasonal_spatial,
+                                 b = water_seasonal_spatial)
+
+set3_sand_in_water = perc_overlap(a = sand_seasonal_spatial,
+                                  b = water_seasonal_spatial)
+```
+
+Table showing the percentage of Fish ASVs found in water in 3 different data subsets.
+
+-   set 1: Only water samples with fecal samples in the same place on the same day
+-   set 2: Include all water samples taken at stations inluded in set 1. (This only adds 4 samples).
+-   set 3: Include all water samples regardless of location or date.
+
+| Species     | Set 1: % fish ASVs in water samples | Set 2: % fish ASVs in water samples | Set 3: % fish ASVs in water samples |
+|-------------|-------------------------------------|-------------------------------------|-------------------------------------|
+| Red Shiner  | `r red_in_water`                    | `r set2_red_in_water`               | `r set3_red_in_water`               |
+| Sand Shiner | `r sand_in_water`                   | `r set2_sand_in_water`              | `r set3_sand_in_water`              |
+
+# Taxa Rel Abundances
+
+```{r}
+
+```
+
+
+# Session info
+
+```{r}
+devtools::session_info()
+```
+
