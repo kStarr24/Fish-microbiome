@@ -1,0 +1,427 @@
+[krista@login.crane fastqFiles_final2]$ pwd
+/work/samodha/krista/fastqFiles_final2
+[krista@login.crane fastqFiles_final2]$ srun --ntasks-per-node=4 --mem=90GB --nodes=1 --time=6:00:00 --pty bash
+srun: job 43158752 queued and waiting for resources
+srun: job 43158752 has been allocated resources
+[krista@c4033.crane fastqFiles_final2]$ module load mothur
+[krista@c4033.crane fastqFiles_final2]$ mkdir mothur
+[krista@c4033.crane fastqFiles_final2]$ cd mothur
+[krista@c4033.crane mothur]$ wget https://mothur.s3.us-east-2.amazonaws.com/wiki/silva.nr_v138.tgz
+--2022-09-22 13:11:10--  https://mothur.s3.us-east-2.amazonaws.com/wiki/silva.nr_v138.tgz
+Resolving mothur.s3.us-east-2.amazonaws.com (mothur.s3.us-east-2.amazonaws.com)... 52.219.88.40
+Connecting to mothur.s3.us-east-2.amazonaws.com (mothur.s3.us-east-2.amazonaws.com)|52.219.88.40|:443... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 253039501 (241M) [application/x-gzip]
+Saving to: ‘silva.nr_v138.tgz’
+
+silva.nr_v138.tgz         100%[=====================================>] 241.32M  28.3MB/s    in 7.9s
+
+2022-09-22 13:11:18 (30.6 MB/s) - ‘silva.nr_v138.tgz’ saved [253039501/253039501]
+
+[krista@c4033.crane mothur]$ tar -zxvf silva.nr_v138.tgz
+silva.nr_v138.tax
+silva.nr_v138.align
+README.md
+[krista@c4033.crane mothur]$ cp /work/samodha/krista/fastqFiles_final2/Analysis/ASVs.fa .
+[krista@c4033.crane mothur]$ ls
+ASVs.fa  README.md  silva.nr_v138.align  silva.nr_v138.tax  silva.nr_v138.tgz
+[krista@c4033.crane mothur]$ mothur
+Linux version
+
+Using ReadLine,Boost,HDF5,GSL
+mothur v.1.46.1
+Last updated: 9/01/21
+by
+Patrick D. Schloss
+
+Department of Microbiology & Immunology
+
+University of Michigan
+http://www.mothur.org
+
+When using, please cite:
+Schloss, P.D., et al., Introducing mothur: Open-source, platform-independent, community-supported software for describing and comparing microbial communities. Appl Environ Microbiol, 2009. 75(23):7537-41.
+
+Distributed under the GNU General Public License
+
+Type 'help()' for information on the commands that are available
+
+For questions and analysis support, please visit our forum at https://forum.mothur.org
+
+Type 'quit()' to exit program
+
+[NOTE]: Setting random seed to 19760620.
+
+Interactive Mode
+
+
+
+mothur > system(mv silva.nr_v138.align silva.v4.fasta)
+
+
+mothur > align.seqs(fasta=ASVs.fa, reference=silva.v4.fasta)
+
+Using 36 processors.
+
+Reading in the silva.v4.fasta template sequences...     DONE.
+It took 146 to read  146796 sequences.
+
+Aligning sequences from ASVs.fa ...
+478
+479
+478
+480
+478
+478
+478
+477
+479
+480
+478
+477
+477
+477
+476
+478
+478
+477
+475
+476
+477
+476
+475
+475
+475
+475
+475
+475
+474
+474
+475
+475
+474
+474
+473
+479
+It took 45 secs to align 17155 sequences.
+
+[WARNING]: 687 of your sequences generated alignments that eliminated too many bases, a list is provided in ASVs.flip.accnos.
+[NOTE]: 230 of your sequences were reversed to produce a better alignment.
+
+It took 46 seconds to align 17155 sequences.
+
+Output File Names:
+ASVs.align
+ASVs.align.report
+ASVs.flip.accnos
+
+
+mothur > quit()
+Logfile : mothur.1663870354.logfile
+
+
+
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<^>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<^>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<^>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+Detected 1 [WARNING] messages, please review.
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<^>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<^>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<^>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+[krista@c4033.crane mothur]$ sed -i -e 's/>/>AAAAAAAAAA/g' ASVs.align
+[krista@c4033.crane mothur]$ sed -i -e 's/\./-/g' ASVs.align
+[krista@c4033.crane mothur]$ mothur
+Linux version
+
+Using ReadLine,Boost,HDF5,GSL
+mothur v.1.46.1
+Last updated: 9/01/21
+by
+Patrick D. Schloss
+
+Department of Microbiology & Immunology
+
+University of Michigan
+http://www.mothur.org
+
+When using, please cite:
+Schloss, P.D., et al., Introducing mothur: Open-source, platform-independent, community-supported software for describing and comparing microbial communities. Appl Environ Microbiol, 2009. 75(23):7537-41.
+
+Distributed under the GNU General Public License
+
+Type 'help()' for information on the commands that are available
+
+For questions and analysis support, please visit our forum at https://forum.mothur.org
+
+Type 'quit()' to exit program
+
+[NOTE]: Setting random seed to 19760620.
+
+Interactive Mode
+
+
+
+mothur > dist.seqs(fasta=ASVs.align, processors=16, cutoff=.10, output=phylip)
+
+Using 16 processors.
+
+Sequence        Time    Num_Dists_Below_Cutoff
+0       0       0
+100     2       787
+200     6       2609
+300     13      5197
+4300    20      2866
+400     22      8950
+500     34      12808
+600     48      18434
+9600    49      5306
+700     65      24346
+8600    72      17522
+6100    76      21424
+800     85      33260
+900     107     41153
+1000    132     49794
+12900   155     32601
+4400    168     30099
+1100    169     61332
+13600   181     37557
+7500    185     39053
+11400   194     71119
+1200    208     77272
+6200    250     62091
+15500   251     40088
+1300    251     94011
+12200   252     119551
+16100   259     67056
+14900   285     57670
+1400    298     105810
+4500    319     70033
+14300   322     49557
+1500    348     122279
+8700    372     96983
+1600    402     136888
+6300    412     120698
+10600   429     76731
+7600    443     102592
+9700    452     86072
+1700    460     150657
+4600    485     93294
+11500   491     166652
+1800    520     175154
+13000   553     165685
+1900    584     190830
+16700   603     79000
+6400    622     174280
+2000    651     220024
+12300   675     234058
+8800    676     169714
+4700    683     121515
+14400   693     208572
+13700   696     151882
+2100    721     249310
+7700    765     159372
+9800    782     149896
+11600   792     252138
+2200    795     278173
+15600   814     165752
+16200   824     135728
+6500    840     228637
+2300    873     300029
+10700   883     135073
+4800    883     167710
+13100   892     274865
+15000   919     180914
+2400    954     324945
+8900    980     268276
+2500    1038    357947
+6600    1060    289870
+14500   1070    314660
+4900    1088    209863
+7800    1091    231468
+11700   1093    369890
+12400   1104    302956
+9900    1112    259699
+2600    1127    384836
+16800   1173    148642
+2700    1218    410762
+13800   1226    241007
+5000    1237    238825
+6700    1285    333609
+9000    1289    368222
+13200   1293    373484
+7900    1311    290489
+2800    1313    440078
+10800   1342    223628
+15700   1345    263095
+5100    1365    282360
+16300   1390    219363
+2900    1412    467737
+10000   1446    352044
+5200    1494    336424
+8000    1510    371709
+3000    1514    498723
+6800    1514    377507
+12500   1532    430846
+11800   1565    478912
+15100   1571    248034
+13900   1575    369429
+9100    1603    427493
+3100    1619    527892
+5300    1628    367118
+14600   1647    435426
+8100    1712    461365
+3200    1729    555153
+16900   1742    250305
+6900    1745    434776
+5400    1763    408380
+10100   1783    455715
+10900   1808    343202
+3300    1842    588525
+13300   1865    496550
+15800   1881    346078
+5500    1901    454983
+8200    1917    537576
+9200    1919    505107
+14000   1929    459464
+16400   1958    334309
+3400    1958    613661
+12600   1958    606668
+7000    1981    493053
+5600    2042    502314
+3500    2078    649050
+11900   2081    565752
+10200   2123    550062
+8300    2124    607044
+5700    2186    529242
+3600    2201    675643
+7100    2216    578112
+15200   2232    328896
+9300    2239    590815
+11000   2279    434648
+14700   2281    543525
+14100   2286    549870
+17000   2315    369411
+3700    2327    712871
+5800    2332    572650
+8400    2336    653750
+12700   2398    665974
+15900   2417    458288
+13400   2443    596056
+3800    2457    747523
+7200    2458    637734
+10300   2470    607553
+5900    2480    616185
+16500   2532    403222
+8500    2548    732924
+9400    2562    677999
+3900    2589    793331
+12000   2597    687339
+6000    2630    677411
+14200   2644    679756
+7300    2702    705605
+8576    2711    786795
+14223   2721    708083
+6064    2722    712441
+4000    2726    833363
+11100   2742    526231
+15300   2789    439130
+10400   2820    684119
+12800   2836    820050
+14800   2840    623665
+13500   2841    758451
+4100    2868    859199
+9500    2889    748212
+17100   2893    472262
+7400    2950    760375
+12100   2950    844655
+16000   2960    556872
+13561   2984    809641
+7427    3009    783324
+4200    3013    885077
+11200   3025    619100
+12129   3040    872378
+14855   3046    674840
+15400   3053    564519
+16600   3077    503339
+10500   3088    732073
+4287    3093    928320
+10504   3095    733962
+17154   3097    514037
+16609   3100    509799
+12865   3101    884120
+16046   3102    588309
+9588    3112    841492
+15462   3155    606887
+11300   3164    732845
+11345   3204    788336
+
+It took 3208 secs to find distances for 17155 sequences. 11742764 distances below cutoff 0.1.
+
+
+Output File Names:
+ASVs.phylip.dist
+
+--------Ran this the following day! ------------
+
+[krista@login.crane fastqFiles_final2]$ cd mothur/
+[krista@login.crane mothur]$ ls
+ASVs.align         ASVs.flip.accnos  mothur.1663870354.logfile  README.md          silva.v4.8mer
+ASVs.align.report  ASVs.phylip.dist  mothur.1663871300.logfile  silva.nr_v138.tax  silva.v4.fasta
+ASVs.fa            ASVs.phylip.tre   mothur.1663879121.logfile  silva.nr_v138.tgz
+[krista@login.crane mothur]$ srun --ntasks-per-node=4 --mem=90GB --nodes=1 --time=6:00:00 --pty bash
+srun: job 43175475 queued and waiting for resources
+srun: job 43175475 has been allocated resources
+[krista@c4036.crane mothur]$ module load mothur
+[krista@c4036.crane mothur]$ mothur
+Linux version
+
+Using ReadLine,Boost,HDF5,GSL
+mothur v.1.46.1
+Last updated: 9/01/21
+by
+Patrick D. Schloss
+
+Department of Microbiology & Immunology
+
+University of Michigan
+http://www.mothur.org
+
+When using, please cite:
+Schloss, P.D., et al., Introducing mothur: Open-source, platform-independent, community-supported software for describing and comparing microbial communities. Appl Environ Microbiol, 2009. 75(23):7537-41.
+
+Distributed under the GNU General Public License
+
+Type 'help()' for information on the commands that are available
+
+For questions and analysis support, please visit our forum at https://forum.mothur.org
+
+Type 'quit()' to exit program
+
+[NOTE]: Setting random seed to 19760620.
+
+Interactive Mode
+
+
+
+mothur > clearcut(phylip=ASVs.phylip.dist)
+
+Output File Names:
+ASVs.phylip.tre
+
+
+mothur > quit
+Logfile : mothur.1663963028.logfile
+
+[krista@c4036.crane mothur]$ sed -i -e 's/AAAAAAAAAA//g' mothur/ASVs.phylip.tre
+sed: can't read mothur/ASVs.phylip.tre: No such file or directory
+[krista@c4036.crane mothur]$ ls
+ASVs.align         ASVs.phylip.dist           mothur.1663879121.logfile  silva.nr_v138.tgz
+ASVs.align.report  ASVs.phylip.tre            mothur.1663963028.logfile  silva.v4.8mer
+ASVs.fa            mothur.1663870354.logfile  README.md                  silva.v4.fasta
+ASVs.flip.accnos   mothur.1663871300.logfile  silva.nr_v138.tax
+[krista@c4036.crane mothur]$ pwd
+/work/samodha/krista/fastqFiles_final2/mothur
+[krista@c4036.crane mothur]$ sed -i -e 's/AAAAAAAAAA//g' ASVs.phylip.tre
+[krista@c4036.crane mothur]$ cp ASVs.phylip.tre /work/samodha/krista/fastqFiles_final2/Analysis/
+[krista@c4036.crane mothur]$ pwd
+/work/samodha/krista/fastqFiles_final2/mothur
