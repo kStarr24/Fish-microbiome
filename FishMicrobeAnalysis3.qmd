@@ -1,0 +1,803 @@
+---
+title: "FishMicrobeAnalysis3"
+date: last-modified
+author: 
+  - "Krista Starr"
+  - "Federica Montesanto"
+title-block-banner: "#3B3C3A"
+format:
+  html:
+    theme: journal
+    code-fold: true
+    toc: true
+    toc-location: left
+    number-sections: true
+bibliography: fishgut_bib.bib
+link-citations: yes
+csl: transactions-of-the-american-fisheries-society.csl
+editor: source
+---
+
+# Research Questions
+
+-   Which gut microbes are aquired from the environment (river water)?
+-   Which gut microbes are atocthonous to specific species and may be selected for by the host species?
+-   Are there gut microbes associated with specific trophic levels of the host fish species?
+
+# Set up and Information
+
+This analysis begins after I previously analyzed the negative controls and samples of each plate in the R markdown file `FishMicrobeAnalysis.Rmd`. In that file I renamed all the fastq files so they are now named using the convention `sampleName_F_sampleNames.fastq.gz` or `sampleName_R_sampleNames.fastq.gz`. I did this because there are three sequencing runs that re-use MiSeqIDs. To analyze these fastq files together I needed to change the MiSeqIDs to SampleIDs.
+
+## Create project mapping file
+
+I am starting with the project mapping file created in `FishMicrobeAnalysis.Rmd` that includes all fecal or water samples. Then I will filter it so I only keep samples on the plates Fecal_pt1_and_DEQ plate 3 and PlatteMicrobe_DEQ_REDOS plate 1.
+
+```{r mapping_file}
+#| eval: false
+
+mapping = read.csv("fishMappingFile.csv")
+
+Fecal_pt1_and_DEQ = read.csv("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\Fecal_pt1_and_DEQ_negFix.csv")
+
+PlatteMicrobe_DEQ_Redos = read.delim("C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\Raw Data\\PlatteMicrobe_DEQ_Redos\\plattemicrobe_deq_redos_edit_MISEQ.txt")
+
+# These sample names caused issues with the underscore. So in the mapping file they are renamed to use a dash instead. To pull them out I'm going to get their MiseqID and concatenate "S" infront which will match the MiseqIDs in the project mapping file.
+sampleNames = Fecal_pt1_and_DEQ$sampleID[Fecal_pt1_and_DEQ$miseqID >= 193]
+sampleNames
+
+miseqID = Fecal_pt1_and_DEQ$miseqID[Fecal_pt1_and_DEQ$miseqID >= 193]
+miseqID
+miseqID = paste0("S", miseqID)
+miseqID %in% mapping$miseqID
+
+# For consistancy I'm going to use the MiseqID's of the second plate as well. This plate has "A" infron of the MiseqIDs.
+sampleNames2 = PlatteMicrobe_DEQ_Redos$sampleID[PlatteMicrobe_DEQ_Redos$X <= 96]
+sampleNames2
+
+miseqID2 = PlatteMicrobe_DEQ_Redos$X[PlatteMicrobe_DEQ_Redos$X <= 96]
+miseqID2
+miseqID2 = paste0("A", miseqID2)
+miseqID2 %in% mapping$miseqID
+
+miseqID_keep = c(miseqID, miseqID2)
+
+
+meta_data = mapping[(mapping$miseqID %in% miseqID_keep) , ]
+
+write.csv(meta_data, "fishProject_meta.csv")
+```
+
+Load in the project meta data file.
+
+```{r load_file}
+#| code-fold: false
+meta = read.csv("fishProject_meta.csv")
+```
+
+## Load packages
+
+```{r packages, message=FALSE}
+#| code-fold: false
+library("import")
+library("knitr")
+library("BiocManager")
+library("BiocStyle")
+library("ggplot2")
+library("gridExtra")
+library("Rcpp")
+library("dada2")
+library("phyloseq")
+library("DECIPHER")
+library("ape")
+library("phangorn")
+library("ShortRead")
+library("R.utils")
+
+library("MicrobiotaProcess")
+library("stringr")
+library("genefilter")
+library("decontam")
+```
+
+## Fastq Files
+
+I need to make a folder with only fastq files in the two plates being assessed in this project.
+
+```{r fastq_sorting}
+#| eval: false
+
+fastq_path = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\fastqFiles_final"
+
+fastq_end = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\fastqFiles_final2"
+
+# make list of files to coppy to final location
+sampleNames = meta$sampleID
+
+keepFs <- file.path(fastq_path, paste0(sampleNames, "_F_sampleNames.fastq"))
+keepRs <- file.path(fastq_path, paste0(sampleNames, "_R_sampleNames.fastq"))
+head(keepFs)
+
+for(i in 1:length(keepFs)){
+  file.copy(keepFs[i],fastq_end)
+  file.copy(keepRs[i],fastq_end)
+}
+
+```
+
+Set the fastq path to the newly created folder with only fastq files for this project
+
+```{r fastq_path}
+#| code-fold: false
+
+fastq_files = "C:\\Users\\14022\\OneDrive - University of Nebraska-Lincoln\\eDNA Rivers project\\Fish_data\\MicrobiomeAnalysis_KristaAndFederica\\fastqFiles_final2"
+```
+
+# DADA2 Pipeline
+
+This analysis relies on the `dada2` package. [@Callahan2016DADA2]
+
+## Quality Profiling
+
+Set up fastq file paths and sample name information
+
+```{r dada2_setup}
+#| output: false
+
+fnFs = sort(list.files(fastq_files, pattern="_F_sampleNames.fastq")) #forward reads
+fnRs = sort(list.files(fastq_files, pattern="_R_sampleNames.fastq")) #reverse reads
+head(fnFs)
+
+# Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+sampleNames = sapply(strsplit(fnFs, "_"), `[`, 1)
+sampleNames
+
+# Specify the full path to the fnFs and fnRs
+fnFs = file.path(fastq_files, fnFs)
+fnRs = file.path(fastq_files, fnRs)
+fnFs[1:3]
+fnRs[1:3]
+
+```
+
+Create quality plots to determine how reads should be trimmed.\
+*Forward reads*
+
+```{r quality_profiles}
+
+# Quality plots will allow you to determine how to truncate your reads
+plotQualityProfile(fnFs[1:6])
+```
+
+*Reverse reads*
+
+```{r quality_profiles2}
+
+# Quality plots will allow you to determine how to truncate your reads
+plotQualityProfile(fnRs[1:6])
+```
+
+Based on these quality profiles I will try trimming the reads at 240 on the forward read and 160 on the reverse reads. The rest of the DADA2 pipeline will be done on HCC crane. Output files will be uploaded.
+
+## DADA2 code run in HCC crane
+
+To speed analysis I chose to run the bulk of the DADA2 pipeline on the HCC crane cluster. This code is also available in the R script file `FishMicrobeAnalysis_dada2_rscript.R` which was submitted to crane. In addition, code output can be found in `Rscript.43142991.stdout` and code messages can be found in `Rscript.43142991.stderr`.
+
+```{r dada2}
+#| eval: false
+
+# 2022-09-21
+# Krista Starr
+# Fish Microbiome DADA2 script to run on HCC crane
+# This code is designed to be run in R/4.1 in Crane.
+
+# Beging DAD2 pipeline
+fastq_files = "/work/samodha/krista/fastqFiles_final2"
+list.files(fastq_files)
+
+mapping = read.csv("fishProject_meta.csv")
+head(mapping)
+
+# import may be an issue in batch jobs. try commenting out if the job fails
+# library("import")
+library("knitr")
+library("BiocManager")
+library("BiocStyle")
+library("ggplot2")
+library("gridExtra")
+library("Rcpp")
+library("dada2")
+library("phyloseq")
+library("DECIPHER")
+library("ape")
+library("phangorn")
+library("ShortRead")
+
+# list forward and reverse fastq files
+fnFs = sort(list.files(fastq_files, pattern="_F_sampleNames.fastq"))
+fnRs = sort(list.files(fastq_files, pattern="_R_sampleNames.fastq"))
+
+# check file list
+head(fnFs)
+head(fnRs)
+
+# Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+sampleNames <- sapply(strsplit(fnFs, "_"), `[`, 1)
+
+#Specify full file path
+fnFs <- file.path(fastq_files, fnFs)
+fnRs <- file.path(fastq_files, fnRs)
+fnFs[1:3]
+fnRs[1:3]
+
+# Plot quality profiles
+plotQualityProfile(fnFs[1:6])
+plotQualityProfile(fnRs[1:6])
+
+# Create a pathway to store filtered fastq files
+filt_path <- file.path(fastq_files, "filtered") 
+if(!file_test("-d", filt_path)) dir.create(filt_path)
+filtFs <- file.path(filt_path, paste0(sampleNames, "_F_filt.fastq.gz"))
+filtRs <- file.path(filt_path, paste0(sampleNames, "_R_filt.fastq.gz"))
+
+# Trimming and filtering the F/R reads
+out <- filterAndTrim(fnFs, filtFs, fnRs, filtRs, truncLen=c(240,160), maxN=0, maxEE=c(2,2), truncQ=2, rm.phix=TRUE, compress=TRUE, multithread=TRUE, matchIDs = T)
+# view result
+out
+# save it!
+save(out, file = "out.rds")
+
+# Statistics after trimming
+#total reads in
+sum(out[,1]) 
+#total reads out
+sum(out[,2]) 
+#reads lost
+sum(out[,1]) - sum(out[,2])
+# percentage data retained
+sum(out[,2])/sum(out[,1]) 
+
+#to avoid error, due to very low reads
+exists <- file.exists(filtFs) & file.exists(filtRs)
+filtFs <- filtFs[exists]
+filtRs <- filtRs[exists]
+
+# Dereplication
+derepFs <- derepFastq(filtFs, verbose=TRUE)
+derepRs <- derepFastq(filtRs, verbose=TRUE)
+# Name the derep-class objects by the sample names
+names(derepFs) <- sampleNames
+names(derepRs) <- sampleNames
+# save
+save(derepFs, derepRs, file = "dereps.rds")
+
+# Learn the error rates
+errF <- learnErrors(filtFs, multithread=TRUE)
+errR <- learnErrors(filtRs, multithread=TRUE)
+plotErrors(errF)
+plotErrors(errR)
+# save
+save(errF, errR, file = "error_rates.rds")
+
+# Use the core dada2 inference method
+dadaFs <- dada(derepFs, err=errF, multithread=TRUE)
+dadaRs <- dada(derepRs, err=errR, multithread=TRUE)
+dadaFs[[1]] #summary of first sample
+# save
+save(dadaFs, dadaRs, file = "dada_function.rds")
+
+# Merge paired reads
+mergers <- mergePairs(dadaFs, derepFs, dadaRs, derepRs, verbose=T)
+# save
+save(mergers, file = "mergers.rds")
+
+# Create a sequence table
+seqtab <- makeSequenceTable(mergers)
+dim(seqtab) # returns #samples, #numASVs
+save(seqtab, file = "seqtab.rds")
+
+# Get a table with the distribution of sequence lengths
+table = table(nchar(getSequences(seqtab)))
+save(table, file = "seqLength_dist.rds")
+
+# Remove chimera sequences
+seqtab.nochim <- removeBimeraDenovo(seqtab, method="consensus", multithread=TRUE, verbose=TRUE)
+dim(seqtab.nochim)
+save(seqtab.nochim, file = "seqtab.nochim.rds")
+
+# Assign taxonomy
+reference_file = paste0(fastq_files, "/", "silva_nr99_v138.1_wSpecies_train_set.fa.gz")
+taxa <- assignTaxonomy(seqtab.nochim, reference_file , multithread=TRUE)
+save(taxa, file = "taxa.rds")
+
+# Track reads through the pipeline
+getN <- function(x) sum(getUniques(x))
+track <- cbind(out, sapply(dadaFs, getN), sapply(dadaRs, getN), sapply(mergers, getN), rowSums(seqtab.nochim))
+# If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)
+colnames(track) <- c("input", "filtered", "denoisedF", "denoisedR", "merged", "nonchim")
+rownames(track) <- sampleNames
+head(track)
+write.csv(track, file = "track_reads.csv")
+
+
+dir.create("Analysis")
+
+# Give our sequence headers more manageble names (ASV_1, ASV_2...)
+asv_seqs <- colnames(seqtab.nochim)
+asv_headers <- vector(dim(seqtab.nochim)[2], mode="character")
+
+for (i in 1:dim(seqtab.nochim)[2]) {
+  asv_headers[i] <- paste(">ASV", i, sep="_")
+}
+
+# Making and writing out a fasta of our final ASV seqs:
+  asv_fasta <- c(rbind(asv_headers, asv_seqs))
+write(asv_fasta, "Analysis/ASVs.fa")
+
+# Count table:
+asv_tab <- t(seqtab.nochim)
+row.names(asv_tab) <- sub(">", "", asv_headers)
+write.table(asv_tab, "Analysis/ASVs_counts.txt", sep="\t", quote=F)
+
+# Tax table:
+asv_tax <- taxa
+row.names(asv_tax) <- sub(">", "", asv_headers)
+write.table(asv_tax, "Analysis/ASVs_taxonomy.txt", sep="\t", quote=F)
+write.table(taxa, "Analysis/taxonomy.txt", sep="\t", quote=F)
+```
+
+## Mothur: run in HCC crane
+
+Using the output files from the DADA2 pipeline, I will now use Mothur to create a phylogenetic tree. This code was all run interactively in HCC crane.The code output is saved in `motur_output.txt`. Relevant files will be downloaded and utilized in downstream analysis.
+
+```{r mothur}
+#| eval: false
+
+# # MOTHUR CODE
+# module load mothur
+# mkdir mothur
+# cd mothur
+# wget https://mothur.s3.us-east-2.amazonaws.com/wiki/silva.nr_v138.tgz
+# tar -zxvf silva.nr_v138.tgz
+# 
+# # copy your .fa file into the mothur folder
+# cp /work/samodha/krista/fastqFiles_final2/Analysis/ASVs.fa .
+# 
+# mothur
+# 
+# system(mv silva.nr_v138.align silva.v4.fasta)
+# align.seqs(fasta=ASVs.fa, reference=silva.v4.fasta)
+# 
+# quit()
+# 
+# sed -i -e 's/>/>AAAAAAAAAA/g' ASVs.align
+# sed -i -e 's/\./-/g' ASVs.align
+# 
+# module load mothur
+# mothur
+# 
+# dist.seqs(fasta=ASVs.align, processors=16, cutoff=.10, output=phylip)
+# clearcut(phylip=ASVs.phylip.dist)
+# 
+# quit()
+# 
+# sed -i -e 's/AAAAAAAAAA//g' ASVs.phylip.tre
+# 
+# # set to directory of your project!
+# cp ASVs.phylip.tre /work/samodha/krista/fastqFiles_final2/Analysis/
+
+```
+
+# Create a Phyloseq object
+
+Now I will combine the major files into a phyloseq object [@McMurdie2013phyloseq] which will make it much easier to do analysis. For help with phyloseq go to [Joey711's phyloseq tutorial](https://joey711.github.io/phyloseq/import-data.html). I had to do some string manipulation using the `stringr` package [@Wickham2019stringr].
+
+```{r create_phyloseq}
+#| eval: false
+
+
+meta = read.csv("fishProject_meta.csv")
+row.names(meta) = meta$sampleID
+meta$sampleID
+
+asv_tab = read.table("D:\\fish gut\\dada2_FishMicrobeAnalysis2\\Analysis\\ASVs_counts.txt")
+colnames(asv_tab)
+colnames(asv_tab) = str_replace(colnames(asv_tab), "X", "")
+colnames(asv_tab) = str_replace(col_names, fixed(".") , "-")
+dim(asv_tab)
+# check to make sure all sample names in meta are in asv tab and vise versa
+colnames(asv_tab) %in% meta$sampleID
+meta$sampleID %in% colnames(asv_tab)
+# ASV table should be a matrix to go to phyloseq seamlessly.
+class(asv_tab)
+asv_tab = as.matrix(asv_tab)
+asv_tab[1:5 , 1:5]
+
+# Taxa table should be a character matrix to go to phyloseq seamlessly.
+asv_tax = read.delim("D:\\fish gut\\dada2_FishMicrobeAnalysis2\\Analysis\\ASVs_taxonomy.txt")
+head(asv_tax)
+class(asv_tax)
+asv_tax = as.matrix(asv_tax)
+head(asv_tax)
+
+tree = read_tree("D:\\fish gut\\dada2_FishMicrobeAnalysis2\\Analysis\\ASVs.phylip.tre")
+
+# There is a conflict with the `tax_table()` function when you have both phyloseq and MicrobiotaProcess loaded. I will need to specify which function I am refering to by calling `phyloseq::tax_table()`.
+ps_fishMicrobeAnalysis2 = phyloseq(otu_table(asv_tab, taxa_are_rows=TRUE),
+	                        sample_data(meta),
+			                    phyloseq::tax_table(asv_tax),
+			                    phy_tree(tree))
+
+save(ps_fishMicrobeAnalysis2, file= "ps_fishMicrobeAnalysis2.RData")
+
+```
+
+```{r load_phyloseq}
+#| code-fold: false
+
+load("ps_fishMicrobeAnalysis2.RData")
+
+```
+
+# Filtering
+
+## First look
+
+Fist take a look at the phyloseq object brought in.
+
+```{r initial_stats}
+ps_fishMicrobeAnalysis2
+
+# Total number of reads
+sum1 = sum(taxa_sums(ps_fishMicrobeAnalysis2)) 
+
+# Total number of ASV's
+asv1 = dim(ps_fishMicrobeAnalysis2@otu_table)[1]
+
+```
+
+Initially there are:
+
+-   `r sum1` reads
+-   `r asv1` ASVs
+
+## ASV rank abundance histogram
+
+```{r}
+#Plot the taxa sums to see how abundant they all are.  I limited the y-axis to better see the long tail of rare taxa.
+tsumabn <- plot(sort(taxa_sums(ps_fishMicrobeAnalysis2), TRUE), type="h", ylim=c(0, 1000), ylab="Abundance")
+```
+
+## Decontam
+
+ASV is present in higher fraction of negative controls than true samples are classified as contamination. This will be done using the package `dcontam`. [@Davis2017simple]
+
+```{r decontam}
+#| code-fold: false
+#| warning: false
+
+# Create a column in pyloseq sample data to identify negative controls
+sample_data(ps_fishMicrobeAnalysis2)$is.neg <- sample_data(ps_fishMicrobeAnalysis2)$sample_or_control == "negative"
+
+# Create a table inicating which ASVs are considered contamination
+contamdf.prev <- isContaminant(ps_fishMicrobeAnalysis2,
+                               method="prevalence", 
+                               neg="is.neg",
+                               threshold = 0.1)
+head(contamdf.prev)
+write.csv(contamdf.prev, file="contaminat_list.csv", row.names = TRUE)
+
+# gives the number of FALSE (not contaminant) and TRUE (contaminant) ASV's
+table(contamdf.prev$contaminant)
+
+# filtering out contamination
+ps_no_contamination <- prune_taxa(!contamdf.prev$contaminant, ps_fishMicrobeAnalysis2)
+ps_no_contamination
+```
+
+### Update on Filtering
+
+```{r filt_update3}
+# Number of ASV's remaining
+asv2 = dim(ps_no_contamination@otu_table)[1]
+
+# Number of Reads remaining
+sum2 = sum(taxa_sums(ps_no_contamination))
+
+# Percentage of reads remaing
+per2 = (sum(taxa_sums(ps_no_contamination)/sum(taxa_sums(ps_fishMicrobeAnalysis2))))*100
+
+```
+
+-   `r asv2` ASVs remain
+-   `r sum2` reads remain
+-   `r per2`% reads retained
+
+## Remove Negative Controls
+
+```{r rm_negatives}
+#| code-fold: false
+#| warning: false
+
+ps_no_neg <- subset_samples(ps_no_contamination, sample_data(ps_no_contamination)$sample_or_control != "negative")
+ps_no_neg
+```
+
+### Update on Filtering
+
+```{r filt_update4}
+# Number of ASV's remaining
+asv3 = dim(ps_no_neg@otu_table)[1]
+
+# Number of Reads remaining
+sum3 = sum(taxa_sums(ps_no_neg))
+
+# Percentage of reads remaing
+per3 = (sum(taxa_sums(ps_no_neg)/sum(taxa_sums(ps_no_contamination))))*100
+
+```
+
+-   `r asv3` ASVs remain
+-   `r sum3` reads remain
+-   `r per3`% reads retained
+
+## Remove unwanted kingdoms
+
+```{r rm_extra_kingdoms}
+#| code-fold: false
+#| warning: false
+
+#making vector to filter out unwanted kingdoms
+remove_kingdoms <- c( "Archaea", "Eukaryota")
+# Remove unwanted kingdoms
+ps_only_bacteria <- subset_taxa(ps_no_neg, !Kingdom %in% remove_kingdoms)
+ps_only_bacteria
+
+```
+
+### Update on Filtering
+
+```{r filt_update2}
+# Number of ASV's remaining
+asv4 = dim(ps_only_bacteria@otu_table)[1]
+
+# Number of Reads remaining
+sum4 = sum(taxa_sums(ps_only_bacteria))
+
+# Percentage of reads remaing
+per4 = (sum(taxa_sums(ps_only_bacteria))/sum(taxa_sums(ps_no_neg)))*100
+```
+
+-   `r asv4` ASVs remain
+-   `r sum4` reads remain
+-   `r per4`% of reads retained
+
+## Prevalance and Abudnace filtering
+
+This section uses the package `genefilter` [@Gentleman2022genefilter] to filter on prevalence and abundance of the ASVs.
+
+```{r abund_filter}
+#| code-fold: false
+#| warning: false
+
+set.seed(123)
+
+# create data set transformed to ASV relative abundance within samples
+ps_norm  <-  transform_sample_counts(ps_only_bacteria, function(x) x / sum(x) )
+
+#set the function parameters, 0.15% abundance w/in a sample, and must have that criteria in at least 2 samples
+flist <- filterfun(kOverA(k = 2, A = 0.0015))
+
+#create a list of ASVs that meet flist criteria
+taxa_to_filter <- filter_taxa(ps_norm, flist) 
+head(taxa_to_filter)
+
+#Now filter out ASVs that do not meet the criteria kOverA i.e. dd2.logi list...
+ps_filtered = prune_taxa(taxa_to_filter, ps_only_bacteria)
+ps_filtered
+
+```
+
+### Update on Filtering
+
+```{r filt_update1}
+# Number of ASV's remaining
+asv5 = dim(ps_filtered@otu_table)[1]
+
+# Number of Reads remaining
+sum5 = sum(taxa_sums(ps_filtered))
+
+# Percent of reads that remain
+per5 = (sum(taxa_sums(ps_filtered))/sum(taxa_sums(ps_only_bacteria)))*100
+
+```
+
+-   `r asv5` ASVs remain
+-   `r sum5` reads remain
+-   `r per5`% of the reads retained
+
+### Remove reads with low coverage
+
+t this point I want to remove samples that don't have enough sequences to cover the diversity of the sample. I will determine the minimum required reads by looking at rarefaction curves and I would like to use a test Samodha mentioned: possibly good's average coverage???
+
+### Determine what how to define "low coverage"
+
+```{r seq_depth_hist}
+
+# create a data frame including sampleID and total reads in that sample
+reads_per_sample_df <- data.frame(Reads = sample_sums(ps_filtered)) 
+reads_per_sample_df$sampleID <- rownames(reads_per_sample_df)
+
+reads_per_sample_df <- reads_per_sample_df[,c(2,1)] # reorder columns
+reads_per_sample_df_sorted <- reads_per_sample_df[order(reads_per_sample_df$Reads),] # order samples by read count (ascending)
+
+
+#Making histogram to visualize reads
+read_depth_histo <- ggplot(reads_per_sample_df_sorted, aes(x = Reads)) + geom_histogram(color = "black", fill = "indianred", binwidth = 2500) + 
+  ggtitle("Sequence depth distribution across samples") + 
+  xlab("Number of reads") + 
+  theme(axis.title.y = element_blank())
+read_depth_histo
+
+```
+
+```{r read_depth_stats}
+# Smallest read depth
+min_read_depth <- min(sample_sums(ps_filtered))
+
+# Largest read depth
+max_read_depth <- max(sample_sums(ps_filtered))
+
+# Mean read depth
+average = mean(reads_per_sample_df$Reads)
+
+# Standard Deviation of read depth
+stdev = sd(reads_per_sample_df$Reads)
+```
+
+-   minimum read depth: `r min_read_depth`
+-   maximum read depth: `r max_read_depth`
+-   mean read depth: `r average`
+-   standard dev. read depth: `r stdev`
+
+Create a rarefaction curve to look at how well the samples represent their community.
+
+```{r rarefaction_curves}
+#| warning: false
+#| message: false
+
+# having an issue with the really low abundance samples. I will start by removing samples with less than 1000 reads.
+ps_1000 <- prune_samples(sample_sums(ps_filtered) > 1000, ps_filtered)
+
+set.seed(1024)
+rareres <- get_rarecurve(obj=ps_1000, chunks=400)
+
+prare4 <- ggrarecurve(obj=rareres,
+                      factorNames="sampleType",
+                      shadow=FALSE,
+                      indexNames=c("Observe")
+) +
+  scale_color_manual(values=c("#e8ae66", "#b8de78"))+
+  theme_bw()+
+  theme(axis.text=element_text(size=8), panel.grid=element_blank(),
+        strip.background = element_rect(colour=NA,fill="grey"),
+        strip.text.x = element_text(face="bold"))+
+  ylim(0,1000)+
+  ylab("Observed ASVs")+
+  xlab("Number of Reads")+
+  guides(color = guide_legend(title = "Sample Type"))
+prare4
+
+# limit x axis
+prare4 <- ggrarecurve(obj=rareres,
+                      factorNames="sampleType",
+                      shadow=FALSE,
+                      indexNames=c("Observe")
+) +
+  scale_color_manual(values=c("#e8ae66", "#b8de78"))+
+  theme_bw()+
+  theme(axis.text=element_text(size=8), panel.grid=element_blank(),
+        strip.background = element_rect(colour=NA,fill="grey"),
+        strip.text.x = element_text(face="bold"))+
+  ylim(0,1000)+
+  xlim(0,20000)+
+  ylab("Observed ASVs")+
+  xlab("Number of Reads")+
+  guides(color = guide_legend(title = "Sample Type"))
+prare4
+
+```
+
+The rarefaction curves show that most samples approach a plateau by 5000 reads. I will use this as the minimum number of reads required to keep a sample in the analysis.
+
+```{r rm_low_rd_samples}
+#| code-fold: false
+
+ps_analyze <- prune_samples(sample_sums(ps_filtered) > 5000, ps_filtered)
+
+# Two stations have the wrong river in the metadata file. I am fixing that here.
+ps_analyze@sam_data$river[101] = "elkhorn"
+ps_analyze@sam_data$river[118] = "elkhorn"
+
+ps_analyze
+
+```
+
+```{r samples_lost}
+samples_lost = dim(ps_filtered@otu_table)[2] - dim(ps_analyze@otu_table)[2]
+```
+
+::: callout-warning
+Filtering out samples with less than 5,000 reads removed `r samples_lost` samples from the data set.
+:::
+
+### Update on Filtering
+
+```{r filt_update6}
+# Number of ASV's remaining
+asv6 = dim(ps_analyze@otu_table)[1]
+
+# Number of Reads remaining
+sum6 = sum(taxa_sums(ps_analyze))
+
+# Percentage of reads remaing
+per6 = (sum(taxa_sums(ps_analyze)/sum(taxa_sums(ps_filtered))))*100
+
+```
+
+-   `r asv6` ASVs remain
+-   `r sum6` reads remain
+-   `r per6`% reads retained
+
+## Prunning taxa that do not belong to any sample
+
+```{r prune_no_sample_asv}
+#| warning: false
+#| code-fold: false
+
+ps_final_analyze <- prune_species(speciesSums(ps_analyze) > 0, ps_analyze)
+ps_final_analyze
+
+# save
+saveRDS(ps_final_analyze, "ps_final_analyze.rds")
+```
+
+### Update on Filtering
+
+```{r filt_update5}
+# Number of ASV's remaining
+asv7 = dim(ps_final_analyze@otu_table)[1]
+
+# Number of Reads remaining
+sum7 = sum(taxa_sums(ps_final_analyze))
+
+# Percentage of reads remaing
+per7 = (sum(taxa_sums(ps_final_analyze)/sum(taxa_sums(ps_analyze))))*100
+
+```
+
+-   `r asv7` ASVs remain
+-   `r sum7` reads remain
+-   `r per7`% reads retained
+
+## Track reads through filtering
+
+This table shows a summary of where reads and ASVs were removed in the filtering steps.
+
+```{r track_reads}
+asvper2 = (asv2/asv1)*100
+asvper3 = (asv3/asv2)*100
+asvper4 = (asv4/asv3)*100
+asvper5 = (asv5/asv4)*100
+asvper6 = (asv6/asv5)*100
+asvper7 = (asv7/asv6)*100
+```
+
+|          Filtering Step          |  \# ASV   | \% ASV retained | \# reads  | \% reads retained |
+|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
+|              Start               | `r asv1`  |                 | `r sum1`  |                   |
+|             Decontam             | `r asv2`  |   `r asvper2`   | `r sum2`  |     `r per2`      |
+|     Remove Negative Controls     | `r asv3`  |   `r asvper3`   | `r sum3`  |     `r per3`      |
+|        Non-target Domains        | `r asv4`  |   `r asvper4`   | `r sum4`  |     `r per4`      |
+| Prevalence / Abundance Filtering | `r asv5`  |   `r asvper5`   | `r sum5`  |     `r per5`      |
+|      Samples w/ < 5000 reads     | `r asv6`  |   `r asvper6`   | `r sum6`  |     `r per6`      |
+|        ASVs w/ no sample         | `r asv7`  |   `r asvper7`   | `r sum7`  |     `r per7`      |

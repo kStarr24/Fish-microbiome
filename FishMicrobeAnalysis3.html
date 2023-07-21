@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.2.269">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Krista Starr">
+<meta name="author" content="Federica Montesanto">
+<meta name="dcterms.date" content="2023-03-03">
+
+<title>FishMicrobeAnalysis2</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+}
+.hanging div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}
+</style>
+
+
+<script src="FishMicrobeAnalysis3_files/libs/clipboard/clipboard.min.js"></script>
+<script src="FishMicrobeAnalysis3_files/libs/quarto-html/quarto.js"></script>
+<script src="FishMicrobeAnalysis3_files/libs/quarto-html/popper.min.js"></script>
+<script src="FishMicrobeAnalysis3_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="FishMicrobeAnalysis3_files/libs/quarto-html/anchor.min.js"></script>
+<link href="FishMicrobeAnalysis3_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="FishMicrobeAnalysis3_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="FishMicrobeAnalysis3_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="FishMicrobeAnalysis3_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="FishMicrobeAnalysis3_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<style>
+    .quarto-title-block .quarto-title-banner {
+      background: #3B3C3A;
+    }
+    </style>
+
+
+</head>
+
+<body>
+
+<header id="title-block-header" class="quarto-title-block default toc-left page-columns page-full">
+  <div class="quarto-title-banner page-columns page-full">
+    <div class="quarto-title column-body">
+      <h1 class="title">FishMicrobeAnalysis2</h1>
+                      </div>
+  </div>
+    
+  
+  <div class="quarto-title-meta">
+
+      <div>
+      <div class="quarto-title-meta-heading">Authors</div>
+      <div class="quarto-title-meta-contents">
+               <p>Krista Starr </p>
+               <p>Federica Montesanto </p>
+            </div>
+    </div>
+      
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">March 3, 2023</p>
+      </div>
+    </div>
+    
+      
+    </div>
+    
+  
+  </header><div id="quarto-content" class="page-columns page-rows-contents page-layout-article toc-left">
+<div id="quarto-sidebar-toc-left" class="sidebar toc-left">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#research-questions" id="toc-research-questions" class="nav-link active" data-scroll-target="#research-questions"><span class="toc-section-number">1</span>  Research Questions</a></li>
+  <li><a href="#set-up-and-information" id="toc-set-up-and-information" class="nav-link" data-scroll-target="#set-up-and-information"><span class="toc-section-number">2</span>  Set up and Information</a>
+  <ul class="collapse">
+  <li><a href="#create-project-mapping-file" id="toc-create-project-mapping-file" class="nav-link" data-scroll-target="#create-project-mapping-file"><span class="toc-section-number">2.1</span>  Create project mapping file</a></li>
+  <li><a href="#load-packages" id="toc-load-packages" class="nav-link" data-scroll-target="#load-packages"><span class="toc-section-number">2.2</span>  Load packages</a></li>
+  <li><a href="#fastq-files" id="toc-fastq-files" class="nav-link" data-scroll-target="#fastq-files"><span class="toc-section-number">2.3</span>  Fastq Files</a></li>
+  </ul></li>
+  <li><a href="#dada2-pipeline" id="toc-dada2-pipeline" class="nav-link" data-scroll-target="#dada2-pipeline"><span class="toc-section-number">3</span>  DADA2 Pipeline</a>
+  <ul class="collapse">
+  <li><a href="#quality-profiling" id="toc-quality-profiling" class="nav-link" data-scroll-target="#quality-profiling"><span class="toc-section-number">3.1</span>  Quality Profiling</a></li>
+  <li><a href="#dada2-code-run-in-hcc-crane" id="toc-dada2-code-run-in-hcc-crane" class="nav-link" data-scroll-target="#dada2-code-run-in-hcc-crane"><span class="toc-section-number">3.2</span>  DADA2 code run in HCC crane</a></li>
+  <li><a href="#mothur-run-in-hcc-crane" id="toc-mothur-run-in-hcc-crane" class="nav-link" data-scroll-target="#mothur-run-in-hcc-crane"><span class="toc-section-number">3.3</span>  Mothur: run in HCC crane</a></li>
+  </ul></li>
+  <li><a href="#create-a-phyloseq-object" id="toc-create-a-phyloseq-object" class="nav-link" data-scroll-target="#create-a-phyloseq-object"><span class="toc-section-number">4</span>  Create a Phyloseq object</a></li>
+  <li><a href="#filtering" id="toc-filtering" class="nav-link" data-scroll-target="#filtering"><span class="toc-section-number">5</span>  Filtering</a>
+  <ul class="collapse">
+  <li><a href="#first-look" id="toc-first-look" class="nav-link" data-scroll-target="#first-look"><span class="toc-section-number">5.1</span>  First look</a></li>
+  <li><a href="#asv-rank-abundance-histogram" id="toc-asv-rank-abundance-histogram" class="nav-link" data-scroll-target="#asv-rank-abundance-histogram"><span class="toc-section-number">5.2</span>  ASV rank abundance histogram</a></li>
+  <li><a href="#decontam" id="toc-decontam" class="nav-link" data-scroll-target="#decontam"><span class="toc-section-number">5.3</span>  Decontam</a>
+  <ul class="collapse">
+  <li><a href="#update-on-filtering" id="toc-update-on-filtering" class="nav-link" data-scroll-target="#update-on-filtering"><span class="toc-section-number">5.3.1</span>  Update on Filtering</a></li>
+  </ul></li>
+  <li><a href="#remove-negative-controls" id="toc-remove-negative-controls" class="nav-link" data-scroll-target="#remove-negative-controls"><span class="toc-section-number">5.4</span>  Remove Negative Controls</a>
+  <ul class="collapse">
+  <li><a href="#update-on-filtering-1" id="toc-update-on-filtering-1" class="nav-link" data-scroll-target="#update-on-filtering-1"><span class="toc-section-number">5.4.1</span>  Update on Filtering</a></li>
+  </ul></li>
+  <li><a href="#remove-unwanted-kingdoms" id="toc-remove-unwanted-kingdoms" class="nav-link" data-scroll-target="#remove-unwanted-kingdoms"><span class="toc-section-number">5.5</span>  Remove unwanted kingdoms</a>
+  <ul class="collapse">
+  <li><a href="#update-on-filtering-2" id="toc-update-on-filtering-2" class="nav-link" data-scroll-target="#update-on-filtering-2"><span class="toc-section-number">5.5.1</span>  Update on Filtering</a></li>
+  </ul></li>
+  <li><a href="#prevalance-and-abudnace-filtering" id="toc-prevalance-and-abudnace-filtering" class="nav-link" data-scroll-target="#prevalance-and-abudnace-filtering"><span class="toc-section-number">5.6</span>  Prevalance and Abudnace filtering</a>
+  <ul class="collapse">
+  <li><a href="#update-on-filtering-3" id="toc-update-on-filtering-3" class="nav-link" data-scroll-target="#update-on-filtering-3"><span class="toc-section-number">5.6.1</span>  Update on Filtering</a></li>
+  <li><a href="#remove-reads-with-low-coverage" id="toc-remove-reads-with-low-coverage" class="nav-link" data-scroll-target="#remove-reads-with-low-coverage"><span class="toc-section-number">5.6.2</span>  Remove reads with low coverage</a></li>
+  <li><a href="#determine-what-how-to-define-low-coverage" id="toc-determine-what-how-to-define-low-coverage" class="nav-link" data-scroll-target="#determine-what-how-to-define-low-coverage"><span class="toc-section-number">5.6.3</span>  Determine what how to define “low coverage”</a></li>
+  <li><a href="#update-on-filtering-4" id="toc-update-on-filtering-4" class="nav-link" data-scroll-target="#update-on-filtering-4"><span class="toc-section-number">5.6.4</span>  Update on Filtering</a></li>
+  </ul></li>
+  <li><a href="#prunning-taxa-that-do-not-belong-to-any-sample" id="toc-prunning-taxa-that-do-not-belong-to-any-sample" class="nav-link" data-scroll-target="#prunning-taxa-that-do-not-belong-to-any-sample"><span class="toc-section-number">5.7</span>  Prunning taxa that do not belong to any sample</a>
+  <ul class="collapse">
+  <li><a href="#update-on-filtering-5" id="toc-update-on-filtering-5" class="nav-link" data-scroll-target="#update-on-filtering-5"><span class="toc-section-number">5.7.1</span>  Update on Filtering</a></li>
+  </ul></li>
+  <li><a href="#track-reads-through-filtering" id="toc-track-reads-through-filtering" class="nav-link" data-scroll-target="#track-reads-through-filtering"><span class="toc-section-number">5.8</span>  Track reads through filtering</a></li>
+  </ul></li>
+  </ul>
+</nav>
+</div>
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+</div>
+<main class="content quarto-banner-title-block" id="quarto-document-content">
+
+
+
+
+<section id="research-questions" class="level1" data-number="1">
+<h1 data-number="1"><span class="header-section-number">1</span> Research Questions</h1>
+<ul>
+<li>Which gut microbes are aquired from the environment (river water)?</li>
+<li>Which gut microbes are atocthonous to specific species and may be selected for by the host species?</li>
+<li>Are there gut microbes associated with specific trophic levels of the host fish species?</li>
+</ul>
+</section>
+<section id="set-up-and-information" class="level1" data-number="2">
+<h1 data-number="2"><span class="header-section-number">2</span> Set up and Information</h1>
+<p>This analysis begins after I previously analyzed the negative controls and samples of each plate in the R markdown file <code>FishMicrobeAnalysis.Rmd</code>. In that file I renamed all the fastq files so they are now named using the convention <code>sampleName_F_sampleNames.fastq.gz</code> or <code>sampleName_R_sampleNames.fastq.gz</code>. I did this because there are three sequencing runs that re-use MiSeqIDs. To analyze these fastq files together I needed to change the MiSeqIDs to SampleIDs.</p>
+<section id="create-project-mapping-file" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="create-project-mapping-file"><span class="header-section-number">2.1</span> Create project mapping file</h2>
+<p>I am starting with the project mapping file created in <code>FishMicrobeAnalysis.Rmd</code> that includes all fecal or water samples. Then I will filter it so I only keep samples on the plates Fecal_pt1_and_DEQ plate 3 and PlatteMicrobe_DEQ_REDOS plate 1.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>mapping <span class="ot">=</span> <span class="fu">read.csv</span>(<span class="st">"fishMappingFile.csv"</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>Fecal_pt1_and_DEQ <span class="ot">=</span> <span class="fu">read.csv</span>(<span class="st">"C:</span><span class="sc">\\</span><span class="st">Users</span><span class="sc">\\</span><span class="st">14022</span><span class="sc">\\</span><span class="st">OneDrive - University of Nebraska-Lincoln</span><span class="sc">\\</span><span class="st">eDNA Rivers project</span><span class="sc">\\</span><span class="st">Fish_data</span><span class="sc">\\</span><span class="st">MicrobiomeAnalysis_KristaAndFederica</span><span class="sc">\\</span><span class="st">Fecal_pt1_and_DEQ_negFix.csv"</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>PlatteMicrobe_DEQ_Redos <span class="ot">=</span> <span class="fu">read.delim</span>(<span class="st">"C:</span><span class="sc">\\</span><span class="st">Users</span><span class="sc">\\</span><span class="st">14022</span><span class="sc">\\</span><span class="st">OneDrive - University of Nebraska-Lincoln</span><span class="sc">\\</span><span class="st">eDNA Rivers project</span><span class="sc">\\</span><span class="st">Fish_data</span><span class="sc">\\</span><span class="st">Raw Data</span><span class="sc">\\</span><span class="st">PlatteMicrobe_DEQ_Redos</span><span class="sc">\\</span><span class="st">plattemicrobe_deq_redos_edit_MISEQ.txt"</span>)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># These sample names caused issues with the underscore. So in the mapping file they are renamed to use a dash instead. To pull them out I'm going to get their MiseqID and concatenate "S" infront which will match the MiseqIDs in the project mapping file.</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>sampleNames <span class="ot">=</span> Fecal_pt1_and_DEQ<span class="sc">$</span>sampleID[Fecal_pt1_and_DEQ<span class="sc">$</span>miseqID <span class="sc">&gt;=</span> <span class="dv">193</span>]</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>sampleNames</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>miseqID <span class="ot">=</span> Fecal_pt1_and_DEQ<span class="sc">$</span>miseqID[Fecal_pt1_and_DEQ<span class="sc">$</span>miseqID <span class="sc">&gt;=</span> <span class="dv">193</span>]</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>miseqID</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>miseqID <span class="ot">=</span> <span class="fu">paste0</span>(<span class="st">"S"</span>, miseqID)</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>miseqID <span class="sc">%in%</span> mapping<span class="sc">$</span>miseqID</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># For consistancy I'm going to use the MiseqID's of the second plate as well. This plate has "A" infron of the MiseqIDs.</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>sampleNames2 <span class="ot">=</span> PlatteMicrobe_DEQ_Redos<span class="sc">$</span>sampleID[PlatteMicrobe_DEQ_Redos<span class="sc">$</span>X <span class="sc">&lt;=</span> <span class="dv">96</span>]</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>sampleNames2</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>miseqID2 <span class="ot">=</span> PlatteMicrobe_DEQ_Redos<span class="sc">$</span>X[PlatteMicrobe_DEQ_Redos<span class="sc">$</span>X <span class="sc">&lt;=</span> <span class="dv">96</span>]</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>miseqID2</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>miseqID2 <span class="ot">=</span> <span class="fu">paste0</span>(<span class="st">"A"</span>, miseqID2)</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>miseqID2 <span class="sc">%in%</span> mapping<span class="sc">$</span>miseqID</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>miseqID_keep <span class="ot">=</span> <span class="fu">c</span>(miseqID, miseqID2)</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>meta_data <span class="ot">=</span> mapping[(mapping<span class="sc">$</span>miseqID <span class="sc">%in%</span> miseqID_keep) , ]</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(meta_data, <span class="st">"fishProject_meta.csv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>Load in the project meta data file.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>meta <span class="ot">=</span> <span class="fu">read.csv</span>(<span class="st">"fishProject_meta.csv"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="load-packages" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="load-packages"><span class="header-section-number">2.2</span> Load packages</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"import"</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"knitr"</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"BiocManager"</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"BiocStyle"</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ggplot2"</span>)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"gridExtra"</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"Rcpp"</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"dada2"</span>)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"phyloseq"</span>)</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"DECIPHER"</span>)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ape"</span>)</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"phangorn"</span>)</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ShortRead"</span>)</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"R.utils"</span>)</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"MicrobiotaProcess"</span>)</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"stringr"</span>)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"genefilter"</span>)</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"decontam"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="fastq-files" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="fastq-files"><span class="header-section-number">2.3</span> Fastq Files</h2>
+<p>I need to make a folder with only fastq files in the two plates being assessed in this project.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>fastq_path <span class="ot">=</span> <span class="st">"C:</span><span class="sc">\\</span><span class="st">Users</span><span class="sc">\\</span><span class="st">14022</span><span class="sc">\\</span><span class="st">OneDrive - University of Nebraska-Lincoln</span><span class="sc">\\</span><span class="st">eDNA Rivers project</span><span class="sc">\\</span><span class="st">Fish_data</span><span class="sc">\\</span><span class="st">MicrobiomeAnalysis_KristaAndFederica</span><span class="sc">\\</span><span class="st">fastqFiles_final"</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>fastq_end <span class="ot">=</span> <span class="st">"C:</span><span class="sc">\\</span><span class="st">Users</span><span class="sc">\\</span><span class="st">14022</span><span class="sc">\\</span><span class="st">OneDrive - University of Nebraska-Lincoln</span><span class="sc">\\</span><span class="st">eDNA Rivers project</span><span class="sc">\\</span><span class="st">Fish_data</span><span class="sc">\\</span><span class="st">MicrobiomeAnalysis_KristaAndFederica</span><span class="sc">\\</span><span class="st">fastqFiles_final2"</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co"># make list of files to coppy to final location</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>sampleNames <span class="ot">=</span> meta<span class="sc">$</span>sampleID</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>keepFs <span class="ot">&lt;-</span> <span class="fu">file.path</span>(fastq_path, <span class="fu">paste0</span>(sampleNames, <span class="st">"_F_sampleNames.fastq"</span>))</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>keepRs <span class="ot">&lt;-</span> <span class="fu">file.path</span>(fastq_path, <span class="fu">paste0</span>(sampleNames, <span class="st">"_R_sampleNames.fastq"</span>))</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(keepFs)</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">length</span>(keepFs)){</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">file.copy</span>(keepFs[i],fastq_end)</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">file.copy</span>(keepRs[i],fastq_end)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>Set the fastq path to the newly created folder with only fastq files for this project</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>fastq_files <span class="ot">=</span> <span class="st">"C:</span><span class="sc">\\</span><span class="st">Users</span><span class="sc">\\</span><span class="st">14022</span><span class="sc">\\</span><span class="st">OneDrive - University of Nebraska-Lincoln</span><span class="sc">\\</span><span class="st">eDNA Rivers project</span><span class="sc">\\</span><span class="st">Fish_data</span><span class="sc">\\</span><span class="st">MicrobiomeAnalysis_KristaAndFederica</span><span class="sc">\\</span><span class="st">fastqFiles_final2"</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="dada2-pipeline" class="level1" data-number="3">
+<h1 data-number="3"><span class="header-section-number">3</span> DADA2 Pipeline</h1>
+<p>This analysis relies on the <code>dada2</code> package. <span class="citation" data-cites="Callahan2016DADA2">(<a href="#ref-Callahan2016DADA2" role="doc-biblioref">Callahan et al. 2016</a>)</span></p>
+<section id="quality-profiling" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="quality-profiling"><span class="header-section-number">3.1</span> Quality Profiling</h2>
+<p>Set up fastq file paths and sample name information</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>fnFs <span class="ot">=</span> <span class="fu">sort</span>(<span class="fu">list.files</span>(fastq_files, <span class="at">pattern=</span><span class="st">"_F_sampleNames.fastq"</span>)) <span class="co">#forward reads</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>fnRs <span class="ot">=</span> <span class="fu">sort</span>(<span class="fu">list.files</span>(fastq_files, <span class="at">pattern=</span><span class="st">"_R_sampleNames.fastq"</span>)) <span class="co">#reverse reads</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(fnFs)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>sampleNames <span class="ot">=</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(fnFs, <span class="st">"_"</span>), <span class="st">`</span><span class="at">[</span><span class="st">`</span>, <span class="dv">1</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>sampleNames</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Specify the full path to the fnFs and fnRs</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>fnFs <span class="ot">=</span> <span class="fu">file.path</span>(fastq_files, fnFs)</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>fnRs <span class="ot">=</span> <span class="fu">file.path</span>(fastq_files, fnRs)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>fnFs[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>]</span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>fnRs[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>Create quality plots to determine how reads should be trimmed.<br>
+<em>Forward reads</em></p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Quality plots will allow you to determine how to truncate your reads</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plotQualityProfile</span>(fnFs[<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: The `&lt;scale&gt;` argument of `guides()` cannot be `FALSE`. Use "none" instead as
+of ggplot2 3.3.4.
+ℹ The deprecated feature was likely used in the dada2 package.
+  Please report the issue at &lt;https://github.com/benjjneb/dada2/issues&gt;.</code></pre>
+</div>
+<div class="cell-output-display">
+<p><img src="FishMicrobeAnalysis3_files/figure-html/quality_profiles-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p><em>Reverse reads</em></p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Quality plots will allow you to determine how to truncate your reads</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plotQualityProfile</span>(fnRs[<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="FishMicrobeAnalysis3_files/figure-html/quality_profiles2-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>Based on these quality profiles I will try trimming the reads at 240 on the forward read and 160 on the reverse reads. The rest of the DADA2 pipeline will be done on HCC crane. Output files will be uploaded.</p>
+</section>
+<section id="dada2-code-run-in-hcc-crane" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="dada2-code-run-in-hcc-crane"><span class="header-section-number">3.2</span> DADA2 code run in HCC crane</h2>
+<p>To speed analysis I chose to run the bulk of the DADA2 pipeline on the HCC crane cluster. This code is also available in the R script file <code>FishMicrobeAnalysis_dada2_rscript.R</code> which was submitted to crane. In addition, code output can be found in <code>Rscript.43142991.stdout</code> and code messages can be found in <code>Rscript.43142991.stderr</code>.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 2022-09-21</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Krista Starr</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Fish Microbiome DADA2 script to run on HCC crane</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co"># This code is designed to be run in R/4.1 in Crane.</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Beging DAD2 pipeline</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>fastq_files <span class="ot">=</span> <span class="st">"/work/samodha/krista/fastqFiles_final2"</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="fu">list.files</span>(fastq_files)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>mapping <span class="ot">=</span> <span class="fu">read.csv</span>(<span class="st">"fishProject_meta.csv"</span>)</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(mapping)</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="co"># import may be an issue in batch jobs. try commenting out if the job fails</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="co"># library("import")</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"knitr"</span>)</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"BiocManager"</span>)</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"BiocStyle"</span>)</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ggplot2"</span>)</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"gridExtra"</span>)</span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"Rcpp"</span>)</span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"dada2"</span>)</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"phyloseq"</span>)</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"DECIPHER"</span>)</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ape"</span>)</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"phangorn"</span>)</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(<span class="st">"ShortRead"</span>)</span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a><span class="co"># list forward and reverse fastq files</span></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>fnFs <span class="ot">=</span> <span class="fu">sort</span>(<span class="fu">list.files</span>(fastq_files, <span class="at">pattern=</span><span class="st">"_F_sampleNames.fastq"</span>))</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>fnRs <span class="ot">=</span> <span class="fu">sort</span>(<span class="fu">list.files</span>(fastq_files, <span class="at">pattern=</span><span class="st">"_R_sampleNames.fastq"</span>))</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a><span class="co"># check file list</span></span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(fnFs)</span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(fnRs)</span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq</span></span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>sampleNames <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="fu">strsplit</span>(fnFs, <span class="st">"_"</span>), <span class="st">`</span><span class="at">[</span><span class="st">`</span>, <span class="dv">1</span>)</span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a><span class="co">#Specify full file path</span></span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>fnFs <span class="ot">&lt;-</span> <span class="fu">file.path</span>(fastq_files, fnFs)</span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>fnRs <span class="ot">&lt;-</span> <span class="fu">file.path</span>(fastq_files, fnRs)</span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>fnFs[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>]</span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>fnRs[<span class="dv">1</span><span class="sc">:</span><span class="dv">3</span>]</span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot quality profiles</span></span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a><span class="fu">plotQualityProfile</span>(fnFs[<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>])</span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a><span class="fu">plotQualityProfile</span>(fnRs[<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>])</span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a pathway to store filtered fastq files</span></span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>filt_path <span class="ot">&lt;-</span> <span class="fu">file.path</span>(fastq_files, <span class="st">"filtered"</span>) </span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span>(<span class="sc">!</span><span class="fu">file_test</span>(<span class="st">"-d"</span>, filt_path)) <span class="fu">dir.create</span>(filt_path)</span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a>filtFs <span class="ot">&lt;-</span> <span class="fu">file.path</span>(filt_path, <span class="fu">paste0</span>(sampleNames, <span class="st">"_F_filt.fastq.gz"</span>))</span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a>filtRs <span class="ot">&lt;-</span> <span class="fu">file.path</span>(filt_path, <span class="fu">paste0</span>(sampleNames, <span class="st">"_R_filt.fastq.gz"</span>))</span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a><span class="co"># Trimming and filtering the F/R reads</span></span>
+<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a>out <span class="ot">&lt;-</span> <span class="fu">filterAndTrim</span>(fnFs, filtFs, fnRs, filtRs, <span class="at">truncLen=</span><span class="fu">c</span>(<span class="dv">240</span>,<span class="dv">160</span>), <span class="at">maxN=</span><span class="dv">0</span>, <span class="at">maxEE=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">2</span>), <span class="at">truncQ=</span><span class="dv">2</span>, <span class="at">rm.phix=</span><span class="cn">TRUE</span>, <span class="at">compress=</span><span class="cn">TRUE</span>, <span class="at">multithread=</span><span class="cn">TRUE</span>, <span class="at">matchIDs =</span> T)</span>
+<span id="cb10-57"><a href="#cb10-57" aria-hidden="true" tabindex="-1"></a><span class="co"># view result</span></span>
+<span id="cb10-58"><a href="#cb10-58" aria-hidden="true" tabindex="-1"></a>out</span>
+<span id="cb10-59"><a href="#cb10-59" aria-hidden="true" tabindex="-1"></a><span class="co"># save it!</span></span>
+<span id="cb10-60"><a href="#cb10-60" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(out, <span class="at">file =</span> <span class="st">"out.rds"</span>)</span>
+<span id="cb10-61"><a href="#cb10-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-62"><a href="#cb10-62" aria-hidden="true" tabindex="-1"></a><span class="co"># Statistics after trimming</span></span>
+<span id="cb10-63"><a href="#cb10-63" aria-hidden="true" tabindex="-1"></a><span class="co">#total reads in</span></span>
+<span id="cb10-64"><a href="#cb10-64" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span>(out[,<span class="dv">1</span>]) </span>
+<span id="cb10-65"><a href="#cb10-65" aria-hidden="true" tabindex="-1"></a><span class="co">#total reads out</span></span>
+<span id="cb10-66"><a href="#cb10-66" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span>(out[,<span class="dv">2</span>]) </span>
+<span id="cb10-67"><a href="#cb10-67" aria-hidden="true" tabindex="-1"></a><span class="co">#reads lost</span></span>
+<span id="cb10-68"><a href="#cb10-68" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span>(out[,<span class="dv">1</span>]) <span class="sc">-</span> <span class="fu">sum</span>(out[,<span class="dv">2</span>])</span>
+<span id="cb10-69"><a href="#cb10-69" aria-hidden="true" tabindex="-1"></a><span class="co"># percentage data retained</span></span>
+<span id="cb10-70"><a href="#cb10-70" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span>(out[,<span class="dv">2</span>])<span class="sc">/</span><span class="fu">sum</span>(out[,<span class="dv">1</span>]) </span>
+<span id="cb10-71"><a href="#cb10-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-72"><a href="#cb10-72" aria-hidden="true" tabindex="-1"></a><span class="co">#to avoid error, due to very low reads</span></span>
+<span id="cb10-73"><a href="#cb10-73" aria-hidden="true" tabindex="-1"></a>exists <span class="ot">&lt;-</span> <span class="fu">file.exists</span>(filtFs) <span class="sc">&amp;</span> <span class="fu">file.exists</span>(filtRs)</span>
+<span id="cb10-74"><a href="#cb10-74" aria-hidden="true" tabindex="-1"></a>filtFs <span class="ot">&lt;-</span> filtFs[exists]</span>
+<span id="cb10-75"><a href="#cb10-75" aria-hidden="true" tabindex="-1"></a>filtRs <span class="ot">&lt;-</span> filtRs[exists]</span>
+<span id="cb10-76"><a href="#cb10-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-77"><a href="#cb10-77" aria-hidden="true" tabindex="-1"></a><span class="co"># Dereplication</span></span>
+<span id="cb10-78"><a href="#cb10-78" aria-hidden="true" tabindex="-1"></a>derepFs <span class="ot">&lt;-</span> <span class="fu">derepFastq</span>(filtFs, <span class="at">verbose=</span><span class="cn">TRUE</span>)</span>
+<span id="cb10-79"><a href="#cb10-79" aria-hidden="true" tabindex="-1"></a>derepRs <span class="ot">&lt;-</span> <span class="fu">derepFastq</span>(filtRs, <span class="at">verbose=</span><span class="cn">TRUE</span>)</span>
+<span id="cb10-80"><a href="#cb10-80" aria-hidden="true" tabindex="-1"></a><span class="co"># Name the derep-class objects by the sample names</span></span>
+<span id="cb10-81"><a href="#cb10-81" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(derepFs) <span class="ot">&lt;-</span> sampleNames</span>
+<span id="cb10-82"><a href="#cb10-82" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(derepRs) <span class="ot">&lt;-</span> sampleNames</span>
+<span id="cb10-83"><a href="#cb10-83" aria-hidden="true" tabindex="-1"></a><span class="co"># save</span></span>
+<span id="cb10-84"><a href="#cb10-84" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(derepFs, derepRs, <span class="at">file =</span> <span class="st">"dereps.rds"</span>)</span>
+<span id="cb10-85"><a href="#cb10-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-86"><a href="#cb10-86" aria-hidden="true" tabindex="-1"></a><span class="co"># Learn the error rates</span></span>
+<span id="cb10-87"><a href="#cb10-87" aria-hidden="true" tabindex="-1"></a>errF <span class="ot">&lt;-</span> <span class="fu">learnErrors</span>(filtFs, <span class="at">multithread=</span><span class="cn">TRUE</span>)</span>
+<span id="cb10-88"><a href="#cb10-88" aria-hidden="true" tabindex="-1"></a>errR <span class="ot">&lt;-</span> <span class="fu">learnErrors</span>(filtRs, <span class="at">multithread=</span><span class="cn">TRUE</span>)</span>
+<span id="cb10-89"><a href="#cb10-89" aria-hidden="true" tabindex="-1"></a><span class="fu">plotErrors</span>(errF)</span>
+<span id="cb10-90"><a href="#cb10-90" aria-hidden="true" tabindex="-1"></a><span class="fu">plotErrors</span>(errR)</span>
+<span id="cb10-91"><a href="#cb10-91" aria-hidden="true" tabindex="-1"></a><span class="co"># save</span></span>
+<span id="cb10-92"><a href="#cb10-92" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(errF, errR, <span class="at">file =</span> <span class="st">"error_rates.rds"</span>)</span>
+<span id="cb10-93"><a href="#cb10-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-94"><a href="#cb10-94" aria-hidden="true" tabindex="-1"></a><span class="co"># Use the core dada2 inference method</span></span>
+<span id="cb10-95"><a href="#cb10-95" aria-hidden="true" tabindex="-1"></a>dadaFs <span class="ot">&lt;-</span> <span class="fu">dada</span>(derepFs, <span class="at">err=</span>errF, <span class="at">multithread=</span><span class="cn">TRUE</span>)</span>
+<span id="cb10-96"><a href="#cb10-96" aria-hidden="true" tabindex="-1"></a>dadaRs <span class="ot">&lt;-</span> <span class="fu">dada</span>(derepRs, <span class="at">err=</span>errR, <span class="at">multithread=</span><span class="cn">TRUE</span>)</span>
+<span id="cb10-97"><a href="#cb10-97" aria-hidden="true" tabindex="-1"></a>dadaFs[[<span class="dv">1</span>]] <span class="co">#summary of first sample</span></span>
+<span id="cb10-98"><a href="#cb10-98" aria-hidden="true" tabindex="-1"></a><span class="co"># save</span></span>
+<span id="cb10-99"><a href="#cb10-99" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(dadaFs, dadaRs, <span class="at">file =</span> <span class="st">"dada_function.rds"</span>)</span>
+<span id="cb10-100"><a href="#cb10-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-101"><a href="#cb10-101" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge paired reads</span></span>
+<span id="cb10-102"><a href="#cb10-102" aria-hidden="true" tabindex="-1"></a>mergers <span class="ot">&lt;-</span> <span class="fu">mergePairs</span>(dadaFs, derepFs, dadaRs, derepRs, <span class="at">verbose=</span>T)</span>
+<span id="cb10-103"><a href="#cb10-103" aria-hidden="true" tabindex="-1"></a><span class="co"># save</span></span>
+<span id="cb10-104"><a href="#cb10-104" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(mergers, <span class="at">file =</span> <span class="st">"mergers.rds"</span>)</span>
+<span id="cb10-105"><a href="#cb10-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-106"><a href="#cb10-106" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a sequence table</span></span>
+<span id="cb10-107"><a href="#cb10-107" aria-hidden="true" tabindex="-1"></a>seqtab <span class="ot">&lt;-</span> <span class="fu">makeSequenceTable</span>(mergers)</span>
+<span id="cb10-108"><a href="#cb10-108" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(seqtab) <span class="co"># returns #samples, #numASVs</span></span>
+<span id="cb10-109"><a href="#cb10-109" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(seqtab, <span class="at">file =</span> <span class="st">"seqtab.rds"</span>)</span>
+<span id="cb10-110"><a href="#cb10-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-111"><a href="#cb10-111" aria-hidden="true" tabindex="-1"></a><span class="co"># Get a table with the distribution of sequence lengths</span></span>
+<span id="cb10-112"><a href="#cb10-112" aria-hidden="true" tabindex="-1"></a>table <span class="ot">=</span> <span class="fu">table</span>(<span class="fu">nchar</span>(<span class="fu">getSequences</span>(seqtab)))</span>
+<span id="cb10-113"><a href="#cb10-113" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(table, <span class="at">file =</span> <span class="st">"seqLength_dist.rds"</span>)</span>
+<span id="cb10-114"><a href="#cb10-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-115"><a href="#cb10-115" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove chimera sequences</span></span>
+<span id="cb10-116"><a href="#cb10-116" aria-hidden="true" tabindex="-1"></a>seqtab.nochim <span class="ot">&lt;-</span> <span class="fu">removeBimeraDenovo</span>(seqtab, <span class="at">method=</span><span class="st">"consensus"</span>, <span class="at">multithread=</span><span class="cn">TRUE</span>, <span class="at">verbose=</span><span class="cn">TRUE</span>)</span>
+<span id="cb10-117"><a href="#cb10-117" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(seqtab.nochim)</span>
+<span id="cb10-118"><a href="#cb10-118" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(seqtab.nochim, <span class="at">file =</span> <span class="st">"seqtab.nochim.rds"</span>)</span>
+<span id="cb10-119"><a href="#cb10-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-120"><a href="#cb10-120" aria-hidden="true" tabindex="-1"></a><span class="co"># Assign taxonomy</span></span>
+<span id="cb10-121"><a href="#cb10-121" aria-hidden="true" tabindex="-1"></a>reference_file <span class="ot">=</span> <span class="fu">paste0</span>(fastq_files, <span class="st">"/"</span>, <span class="st">"silva_nr99_v138.1_wSpecies_train_set.fa.gz"</span>)</span>
+<span id="cb10-122"><a href="#cb10-122" aria-hidden="true" tabindex="-1"></a>taxa <span class="ot">&lt;-</span> <span class="fu">assignTaxonomy</span>(seqtab.nochim, reference_file , <span class="at">multithread=</span><span class="cn">TRUE</span>)</span>
+<span id="cb10-123"><a href="#cb10-123" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(taxa, <span class="at">file =</span> <span class="st">"taxa.rds"</span>)</span>
+<span id="cb10-124"><a href="#cb10-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-125"><a href="#cb10-125" aria-hidden="true" tabindex="-1"></a><span class="co"># Track reads through the pipeline</span></span>
+<span id="cb10-126"><a href="#cb10-126" aria-hidden="true" tabindex="-1"></a>getN <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">sum</span>(<span class="fu">getUniques</span>(x))</span>
+<span id="cb10-127"><a href="#cb10-127" aria-hidden="true" tabindex="-1"></a>track <span class="ot">&lt;-</span> <span class="fu">cbind</span>(out, <span class="fu">sapply</span>(dadaFs, getN), <span class="fu">sapply</span>(dadaRs, getN), <span class="fu">sapply</span>(mergers, getN), <span class="fu">rowSums</span>(seqtab.nochim))</span>
+<span id="cb10-128"><a href="#cb10-128" aria-hidden="true" tabindex="-1"></a><span class="co"># If processing a single sample, remove the sapply calls: e.g. replace sapply(dadaFs, getN) with getN(dadaFs)</span></span>
+<span id="cb10-129"><a href="#cb10-129" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(track) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">"input"</span>, <span class="st">"filtered"</span>, <span class="st">"denoisedF"</span>, <span class="st">"denoisedR"</span>, <span class="st">"merged"</span>, <span class="st">"nonchim"</span>)</span>
+<span id="cb10-130"><a href="#cb10-130" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(track) <span class="ot">&lt;-</span> sampleNames</span>
+<span id="cb10-131"><a href="#cb10-131" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(track)</span>
+<span id="cb10-132"><a href="#cb10-132" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(track, <span class="at">file =</span> <span class="st">"track_reads.csv"</span>)</span>
+<span id="cb10-133"><a href="#cb10-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-134"><a href="#cb10-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-135"><a href="#cb10-135" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">"Analysis"</span>)</span>
+<span id="cb10-136"><a href="#cb10-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-137"><a href="#cb10-137" aria-hidden="true" tabindex="-1"></a><span class="co"># Give our sequence headers more manageble names (ASV_1, ASV_2...)</span></span>
+<span id="cb10-138"><a href="#cb10-138" aria-hidden="true" tabindex="-1"></a>asv_seqs <span class="ot">&lt;-</span> <span class="fu">colnames</span>(seqtab.nochim)</span>
+<span id="cb10-139"><a href="#cb10-139" aria-hidden="true" tabindex="-1"></a>asv_headers <span class="ot">&lt;-</span> <span class="fu">vector</span>(<span class="fu">dim</span>(seqtab.nochim)[<span class="dv">2</span>], <span class="at">mode=</span><span class="st">"character"</span>)</span>
+<span id="cb10-140"><a href="#cb10-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-141"><a href="#cb10-141" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="fu">dim</span>(seqtab.nochim)[<span class="dv">2</span>]) {</span>
+<span id="cb10-142"><a href="#cb10-142" aria-hidden="true" tabindex="-1"></a>  asv_headers[i] <span class="ot">&lt;-</span> <span class="fu">paste</span>(<span class="st">"&gt;ASV"</span>, i, <span class="at">sep=</span><span class="st">"_"</span>)</span>
+<span id="cb10-143"><a href="#cb10-143" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb10-144"><a href="#cb10-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-145"><a href="#cb10-145" aria-hidden="true" tabindex="-1"></a><span class="co"># Making and writing out a fasta of our final ASV seqs:</span></span>
+<span id="cb10-146"><a href="#cb10-146" aria-hidden="true" tabindex="-1"></a>  asv_fasta <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fu">rbind</span>(asv_headers, asv_seqs))</span>
+<span id="cb10-147"><a href="#cb10-147" aria-hidden="true" tabindex="-1"></a><span class="fu">write</span>(asv_fasta, <span class="st">"Analysis/ASVs.fa"</span>)</span>
+<span id="cb10-148"><a href="#cb10-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-149"><a href="#cb10-149" aria-hidden="true" tabindex="-1"></a><span class="co"># Count table:</span></span>
+<span id="cb10-150"><a href="#cb10-150" aria-hidden="true" tabindex="-1"></a>asv_tab <span class="ot">&lt;-</span> <span class="fu">t</span>(seqtab.nochim)</span>
+<span id="cb10-151"><a href="#cb10-151" aria-hidden="true" tabindex="-1"></a><span class="fu">row.names</span>(asv_tab) <span class="ot">&lt;-</span> <span class="fu">sub</span>(<span class="st">"&gt;"</span>, <span class="st">""</span>, asv_headers)</span>
+<span id="cb10-152"><a href="#cb10-152" aria-hidden="true" tabindex="-1"></a><span class="fu">write.table</span>(asv_tab, <span class="st">"Analysis/ASVs_counts.txt"</span>, <span class="at">sep=</span><span class="st">"</span><span class="sc">\t</span><span class="st">"</span>, <span class="at">quote=</span>F)</span>
+<span id="cb10-153"><a href="#cb10-153" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-154"><a href="#cb10-154" aria-hidden="true" tabindex="-1"></a><span class="co"># Tax table:</span></span>
+<span id="cb10-155"><a href="#cb10-155" aria-hidden="true" tabindex="-1"></a>asv_tax <span class="ot">&lt;-</span> taxa</span>
+<span id="cb10-156"><a href="#cb10-156" aria-hidden="true" tabindex="-1"></a><span class="fu">row.names</span>(asv_tax) <span class="ot">&lt;-</span> <span class="fu">sub</span>(<span class="st">"&gt;"</span>, <span class="st">""</span>, asv_headers)</span>
+<span id="cb10-157"><a href="#cb10-157" aria-hidden="true" tabindex="-1"></a><span class="fu">write.table</span>(asv_tax, <span class="st">"Analysis/ASVs_taxonomy.txt"</span>, <span class="at">sep=</span><span class="st">"</span><span class="sc">\t</span><span class="st">"</span>, <span class="at">quote=</span>F)</span>
+<span id="cb10-158"><a href="#cb10-158" aria-hidden="true" tabindex="-1"></a><span class="fu">write.table</span>(taxa, <span class="st">"Analysis/taxonomy.txt"</span>, <span class="at">sep=</span><span class="st">"</span><span class="sc">\t</span><span class="st">"</span>, <span class="at">quote=</span>F)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+<section id="mothur-run-in-hcc-crane" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="mothur-run-in-hcc-crane"><span class="header-section-number">3.3</span> Mothur: run in HCC crane</h2>
+<p>Using the output files from the DADA2 pipeline, I will now use Mothur to create a phylogenetic tree. This code was all run interactively in HCC crane.The code output is saved in <code>motur_output.txt</code>. Relevant files will be downloaded and utilized in downstream analysis.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># # MOTHUR CODE</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="co"># module load mothur</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co"># mkdir mothur</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co"># cd mothur</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co"># wget https://mothur.s3.us-east-2.amazonaws.com/wiki/silva.nr_v138.tgz</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co"># tar -zxvf silva.nr_v138.tgz</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="co"># # copy your .fa file into the mothur folder</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="co"># cp /work/samodha/krista/fastqFiles_final2/Analysis/ASVs.fa .</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="co"># mothur</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="co"># system(mv silva.nr_v138.align silva.v4.fasta)</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="co"># align.seqs(fasta=ASVs.fa, reference=silva.v4.fasta)</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="co"># quit()</span></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="co"># sed -i -e 's/&gt;/&gt;AAAAAAAAAA/g' ASVs.align</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="co"># sed -i -e 's/\./-/g' ASVs.align</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a><span class="co"># module load mothur</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a><span class="co"># mothur</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="co"># dist.seqs(fasta=ASVs.align, processors=16, cutoff=.10, output=phylip)</span></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a><span class="co"># clearcut(phylip=ASVs.phylip.dist)</span></span>
+<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a><span class="co"># quit()</span></span>
+<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a><span class="co"># sed -i -e 's/AAAAAAAAAA//g' ASVs.phylip.tre</span></span>
+<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a><span class="co"># </span></span>
+<span id="cb11-31"><a href="#cb11-31" aria-hidden="true" tabindex="-1"></a><span class="co"># # set to directory of your project!</span></span>
+<span id="cb11-32"><a href="#cb11-32" aria-hidden="true" tabindex="-1"></a><span class="co"># cp ASVs.phylip.tre /work/samodha/krista/fastqFiles_final2/Analysis/</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+</section>
+</section>
+<section id="create-a-phyloseq-object" class="level1" data-number="4">
+<h1 data-number="4"><span class="header-section-number">4</span> Create a Phyloseq object</h1>
+<p>Now I will combine the major files into a phyloseq object <span class="citation" data-cites="McMurdie2013phyloseq">(<a href="#ref-McMurdie2013phyloseq" role="doc-biblioref">McMurdie and Holmes 2013</a>)</span> which will make it much easier to do analysis. For help with phyloseq go to <a href="https://joey711.github.io/phyloseq/import-data.html">Joey711’s phyloseq tutorial</a>. I had to do some string manipulation using the <code>stringr</code> package <span class="citation" data-cites="Wickham2019stringr">(<a href="#ref-Wickham2019stringr" role="doc-biblioref">Wickham 2019</a>)</span>.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>meta <span class="ot">=</span> <span class="fu">read.csv</span>(<span class="st">"fishProject_meta.csv"</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">row.names</span>(meta) <span class="ot">=</span> meta<span class="sc">$</span>sampleID</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>meta<span class="sc">$</span>sampleID</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>asv_tab <span class="ot">=</span> <span class="fu">read.table</span>(<span class="st">"D:</span><span class="sc">\\</span><span class="st">fish gut</span><span class="sc">\\</span><span class="st">dada2_FishMicrobeAnalysis2</span><span class="sc">\\</span><span class="st">Analysis</span><span class="sc">\\</span><span class="st">ASVs_counts.txt"</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(asv_tab)</span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(asv_tab) <span class="ot">=</span> <span class="fu">str_replace</span>(<span class="fu">colnames</span>(asv_tab), <span class="st">"X"</span>, <span class="st">""</span>)</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(asv_tab) <span class="ot">=</span> <span class="fu">str_replace</span>(col_names, <span class="fu">fixed</span>(<span class="st">"."</span>) , <span class="st">"-"</span>)</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(asv_tab)</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="co"># check to make sure all sample names in meta are in asv tab and vise versa</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(asv_tab) <span class="sc">%in%</span> meta<span class="sc">$</span>sampleID</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>meta<span class="sc">$</span>sampleID <span class="sc">%in%</span> <span class="fu">colnames</span>(asv_tab)</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a><span class="co"># ASV table should be a matrix to go to phyloseq seamlessly.</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a><span class="fu">class</span>(asv_tab)</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>asv_tab <span class="ot">=</span> <span class="fu">as.matrix</span>(asv_tab)</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>asv_tab[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span> , <span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>]</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Taxa table should be a character matrix to go to phyloseq seamlessly.</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>asv_tax <span class="ot">=</span> <span class="fu">read.delim</span>(<span class="st">"D:</span><span class="sc">\\</span><span class="st">fish gut</span><span class="sc">\\</span><span class="st">dada2_FishMicrobeAnalysis2</span><span class="sc">\\</span><span class="st">Analysis</span><span class="sc">\\</span><span class="st">ASVs_taxonomy.txt"</span>)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(asv_tax)</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a><span class="fu">class</span>(asv_tax)</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>asv_tax <span class="ot">=</span> <span class="fu">as.matrix</span>(asv_tax)</span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(asv_tax)</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>tree <span class="ot">=</span> <span class="fu">read_tree</span>(<span class="st">"D:</span><span class="sc">\\</span><span class="st">fish gut</span><span class="sc">\\</span><span class="st">dada2_FishMicrobeAnalysis2</span><span class="sc">\\</span><span class="st">Analysis</span><span class="sc">\\</span><span class="st">ASVs.phylip.tre"</span>)</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a><span class="co"># There is a conflict with the `tax_table()` function when you have both phyloseq and MicrobiotaProcess loaded. I will need to specify which function I am refering to by calling `phyloseq::tax_table()`.</span></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>ps_fishMicrobeAnalysis2 <span class="ot">=</span> <span class="fu">phyloseq</span>(<span class="fu">otu_table</span>(asv_tab, <span class="at">taxa_are_rows=</span><span class="cn">TRUE</span>),</span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>                            <span class="fu">sample_data</span>(meta),</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>                                phyloseq<span class="sc">::</span><span class="fu">tax_table</span>(asv_tax),</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>                                <span class="fu">phy_tree</span>(tree))</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a><span class="fu">save</span>(ps_fishMicrobeAnalysis2, <span class="at">file=</span> <span class="st">"ps_fishMicrobeAnalysis2.RData"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">load</span>(<span class="st">"ps_fishMicrobeAnalysis2.RData"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="filtering" class="level1" data-number="5">
+<h1 data-number="5"><span class="header-section-number">5</span> Filtering</h1>
+<section id="first-look" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="first-look"><span class="header-section-number">5.1</span> First look</h2>
+<p>Fist take a look at the phyloseq object brought in.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>ps_fishMicrobeAnalysis2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-stdout">
+<pre><code>phyloseq-class experiment-level object
+otu_table()   OTU Table:         [ 17155 taxa and 185 samples ]
+sample_data() Sample Data:       [ 185 samples by 29 sample variables ]
+tax_table()   Taxonomy Table:    [ 17155 taxa by 7 taxonomic ranks ]
+phy_tree()    Phylogenetic Tree: [ 17155 tips and 17154 internal nodes ]</code></pre>
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Total number of reads</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>sum1 <span class="ot">=</span> <span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_fishMicrobeAnalysis2)) </span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Total number of ASV's</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>asv1 <span class="ot">=</span> <span class="fu">dim</span>(ps_fishMicrobeAnalysis2<span class="sc">@</span>otu_table)[<span class="dv">1</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<p>Initially there are:</p>
+<ul>
+<li>3.521673^{6} reads</li>
+<li>17155 ASVs</li>
+</ul>
+</section>
+<section id="asv-rank-abundance-histogram" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="asv-rank-abundance-histogram"><span class="header-section-number">5.2</span> ASV rank abundance histogram</h2>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Plot the taxa sums to see how abundant they all are.  I limited the y-axis to better see the long tail of rare taxa.</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>tsumabn <span class="ot">&lt;-</span> <span class="fu">plot</span>(<span class="fu">sort</span>(<span class="fu">taxa_sums</span>(ps_fishMicrobeAnalysis2), <span class="cn">TRUE</span>), <span class="at">type=</span><span class="st">"h"</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1000</span>), <span class="at">ylab=</span><span class="st">"Abundance"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="FishMicrobeAnalysis3_files/figure-html/unnamed-chunk-1-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+</section>
+<section id="decontam" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="decontam"><span class="header-section-number">5.3</span> Decontam</h2>
+<p>ASV is present in higher fraction of negative controls than true samples are classified as contamination. This will be done using the package <code>dcontam</code>. <span class="citation" data-cites="Davis2017simple">(<a href="#ref-Davis2017simple" role="doc-biblioref">Davis et al. 2017</a>)</span></p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a column in pyloseq sample data to identify negative controls</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sample_data</span>(ps_fishMicrobeAnalysis2)<span class="sc">$</span>is.neg <span class="ot">&lt;-</span> <span class="fu">sample_data</span>(ps_fishMicrobeAnalysis2)<span class="sc">$</span>sample_or_control <span class="sc">==</span> <span class="st">"negative"</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Create a table inicating which ASVs are considered contamination</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>contamdf.prev <span class="ot">&lt;-</span> <span class="fu">isContaminant</span>(ps_fishMicrobeAnalysis2,</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>                               <span class="at">method=</span><span class="st">"prevalence"</span>, </span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>                               <span class="at">neg=</span><span class="st">"is.neg"</span>,</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>                               <span class="at">threshold =</span> <span class="fl">0.1</span>)</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(contamdf.prev)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                  freq prev p.freq    p.prev         p contaminant
+ASV_8310  1.580380e-06    1     NA        NA        NA       FALSE
+ASV_13265 2.300924e-06    1     NA        NA        NA       FALSE
+ASV_14196 1.299980e-06    1     NA        NA        NA       FALSE
+ASV_9035  1.061577e-06    2     NA 0.5478439 0.5478439       FALSE
+ASV_13476 9.853654e-07    1     NA        NA        NA       FALSE
+ASV_5804  4.887776e-06    5     NA 0.6119957 0.6119957       FALSE</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(contamdf.prev, <span class="at">file=</span><span class="st">"contaminat_list.csv"</span>, <span class="at">row.names =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="co"># gives the number of FALSE (not contaminant) and TRUE (contaminant) ASV's</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(contamdf.prev<span class="sc">$</span>contaminant)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+FALSE  TRUE 
+17126    29 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co"># filtering out contamination</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>ps_no_contamination <span class="ot">&lt;-</span> <span class="fu">prune_taxa</span>(<span class="sc">!</span>contamdf.prev<span class="sc">$</span>contaminant, ps_fishMicrobeAnalysis2)</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>ps_no_contamination</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>phyloseq-class experiment-level object
+otu_table()   OTU Table:         [ 17126 taxa and 185 samples ]
+sample_data() Sample Data:       [ 185 samples by 30 sample variables ]
+tax_table()   Taxonomy Table:    [ 17126 taxa by 7 taxonomic ranks ]
+phy_tree()    Phylogenetic Tree: [ 17126 tips and 17125 internal nodes ]</code></pre>
+</div>
+</div>
+<section id="update-on-filtering" class="level3" data-number="5.3.1">
+<h3 data-number="5.3.1" class="anchored" data-anchor-id="update-on-filtering"><span class="header-section-number">5.3.1</span> Update on Filtering</h3>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of ASV's remaining</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a>asv2 <span class="ot">=</span> <span class="fu">dim</span>(ps_no_contamination<span class="sc">@</span>otu_table)[<span class="dv">1</span>]</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of Reads remaining</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a>sum2 <span class="ot">=</span> <span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_no_contamination))</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Percentage of reads remaing</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a>per2 <span class="ot">=</span> (<span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_no_contamination)<span class="sc">/</span><span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_fishMicrobeAnalysis2))))<span class="sc">*</span><span class="dv">100</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<ul>
+<li>17126 ASVs remain</li>
+<li>3.499869^{6} reads remain</li>
+<li>99.3808624% reads retained</li>
+</ul>
+</section>
+</section>
+<section id="remove-negative-controls" class="level2" data-number="5.4">
+<h2 data-number="5.4" class="anchored" data-anchor-id="remove-negative-controls"><span class="header-section-number">5.4</span> Remove Negative Controls</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>ps_no_neg <span class="ot">&lt;-</span> <span class="fu">subset_samples</span>(ps_no_contamination, <span class="fu">sample_data</span>(ps_no_contamination)<span class="sc">$</span>sample_or_control <span class="sc">!=</span> <span class="st">"negative"</span>)</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>ps_no_neg</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>phyloseq-class experiment-level object
+otu_table()   OTU Table:         [ 17126 taxa and 176 samples ]
+sample_data() Sample Data:       [ 176 samples by 30 sample variables ]
+tax_table()   Taxonomy Table:    [ 17126 taxa by 7 taxonomic ranks ]
+phy_tree()    Phylogenetic Tree: [ 17126 tips and 17125 internal nodes ]</code></pre>
+</div>
+</div>
+<section id="update-on-filtering-1" class="level3" data-number="5.4.1">
+<h3 data-number="5.4.1" class="anchored" data-anchor-id="update-on-filtering-1"><span class="header-section-number">5.4.1</span> Update on Filtering</h3>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of ASV's remaining</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>asv3 <span class="ot">=</span> <span class="fu">dim</span>(ps_no_neg<span class="sc">@</span>otu_table)[<span class="dv">1</span>]</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of Reads remaining</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>sum3 <span class="ot">=</span> <span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_no_neg))</span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Percentage of reads remaing</span></span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a>per3 <span class="ot">=</span> (<span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_no_neg)<span class="sc">/</span><span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_no_contamination))))<span class="sc">*</span><span class="dv">100</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<ul>
+<li>17126 ASVs remain</li>
+<li>3.495994^{6} reads remain</li>
+<li>99.8892816% reads retained</li>
+</ul>
+</section>
+</section>
+<section id="remove-unwanted-kingdoms" class="level2" data-number="5.5">
+<h2 data-number="5.5" class="anchored" data-anchor-id="remove-unwanted-kingdoms"><span class="header-section-number">5.5</span> Remove unwanted kingdoms</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co">#making vector to filter out unwanted kingdoms</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>remove_kingdoms <span class="ot">&lt;-</span> <span class="fu">c</span>( <span class="st">"Archaea"</span>, <span class="st">"Eukaryota"</span>)</span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Remove unwanted kingdoms</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>ps_only_bacteria <span class="ot">&lt;-</span> <span class="fu">subset_taxa</span>(ps_no_neg, <span class="sc">!</span>Kingdom <span class="sc">%in%</span> remove_kingdoms)</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>ps_only_bacteria</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>phyloseq-class experiment-level object
+otu_table()   OTU Table:         [ 16762 taxa and 176 samples ]
+sample_data() Sample Data:       [ 176 samples by 30 sample variables ]
+tax_table()   Taxonomy Table:    [ 16762 taxa by 7 taxonomic ranks ]
+phy_tree()    Phylogenetic Tree: [ 16762 tips and 16761 internal nodes ]</code></pre>
+</div>
+</div>
+<section id="update-on-filtering-2" class="level3" data-number="5.5.1">
+<h3 data-number="5.5.1" class="anchored" data-anchor-id="update-on-filtering-2"><span class="header-section-number">5.5.1</span> Update on Filtering</h3>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of ASV's remaining</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>asv4 <span class="ot">=</span> <span class="fu">dim</span>(ps_only_bacteria<span class="sc">@</span>otu_table)[<span class="dv">1</span>]</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of Reads remaining</span></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>sum4 <span class="ot">=</span> <span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_only_bacteria))</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Percentage of reads remaing</span></span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>per4 <span class="ot">=</span> (<span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_only_bacteria))<span class="sc">/</span><span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_no_neg)))<span class="sc">*</span><span class="dv">100</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<ul>
+<li>16762 ASVs remain</li>
+<li>3.482328^{6} reads remain</li>
+<li>99.6090954% of reads retained</li>
+</ul>
+</section>
+</section>
+<section id="prevalance-and-abudnace-filtering" class="level2" data-number="5.6">
+<h2 data-number="5.6" class="anchored" data-anchor-id="prevalance-and-abudnace-filtering"><span class="header-section-number">5.6</span> Prevalance and Abudnace filtering</h2>
+<p>This section uses the package <code>genefilter</code> <span class="citation" data-cites="Gentleman2022genefilter">(<a href="#ref-Gentleman2022genefilter" role="doc-biblioref">Gentleman et al. 2022</a>)</span> to filter on prevalence and abundance of the ASVs.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="co"># create data set transformed to ASV relative abundance within samples</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>ps_norm  <span class="ot">&lt;-</span>  <span class="fu">transform_sample_counts</span>(ps_only_bacteria, <span class="cf">function</span>(x) x <span class="sc">/</span> <span class="fu">sum</span>(x) )</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a><span class="co">#set the function parameters, 0.15% abundance w/in a sample, and must have that criteria in at least 2 samples</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>flist <span class="ot">&lt;-</span> <span class="fu">filterfun</span>(<span class="fu">kOverA</span>(<span class="at">k =</span> <span class="dv">2</span>, <span class="at">A =</span> <span class="fl">0.0015</span>))</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="co">#create a list of ASVs that meet flist criteria</span></span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>taxa_to_filter <span class="ot">&lt;-</span> <span class="fu">filter_taxa</span>(ps_norm, flist) </span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(taxa_to_filter)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> ASV_8310 ASV_13265 ASV_14196  ASV_9035 ASV_13476  ASV_5804 
+    FALSE     FALSE     FALSE     FALSE     FALSE     FALSE </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Now filter out ASVs that do not meet the criteria kOverA i.e. dd2.logi list...</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>ps_filtered <span class="ot">=</span> <span class="fu">prune_taxa</span>(taxa_to_filter, ps_only_bacteria)</span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>ps_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>phyloseq-class experiment-level object
+otu_table()   OTU Table:         [ 1632 taxa and 176 samples ]
+sample_data() Sample Data:       [ 176 samples by 30 sample variables ]
+tax_table()   Taxonomy Table:    [ 1632 taxa by 7 taxonomic ranks ]
+phy_tree()    Phylogenetic Tree: [ 1632 tips and 1631 internal nodes ]</code></pre>
+</div>
+</div>
+<section id="update-on-filtering-3" class="level3" data-number="5.6.1">
+<h3 data-number="5.6.1" class="anchored" data-anchor-id="update-on-filtering-3"><span class="header-section-number">5.6.1</span> Update on Filtering</h3>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of ASV's remaining</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>asv5 <span class="ot">=</span> <span class="fu">dim</span>(ps_filtered<span class="sc">@</span>otu_table)[<span class="dv">1</span>]</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of Reads remaining</span></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>sum5 <span class="ot">=</span> <span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_filtered))</span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent of reads that remain</span></span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a>per5 <span class="ot">=</span> (<span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_filtered))<span class="sc">/</span><span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_only_bacteria)))<span class="sc">*</span><span class="dv">100</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<ul>
+<li>1632 ASVs remain</li>
+<li>3.038486^{6} reads remain</li>
+<li>87.2544459% of the reads retained</li>
+</ul>
+</section>
+<section id="remove-reads-with-low-coverage" class="level3" data-number="5.6.2">
+<h3 data-number="5.6.2" class="anchored" data-anchor-id="remove-reads-with-low-coverage"><span class="header-section-number">5.6.2</span> Remove reads with low coverage</h3>
+<p>t this point I want to remove samples that don’t have enough sequences to cover the diversity of the sample. I will determine the minimum required reads by looking at rarefaction curves and I would like to use a test Samodha mentioned: possibly good’s average coverage???</p>
+</section>
+<section id="determine-what-how-to-define-low-coverage" class="level3" data-number="5.6.3">
+<h3 data-number="5.6.3" class="anchored" data-anchor-id="determine-what-how-to-define-low-coverage"><span class="header-section-number">5.6.3</span> Determine what how to define “low coverage”</h3>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co"># create a data frame including sampleID and total reads in that sample</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>reads_per_sample_df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Reads =</span> <span class="fu">sample_sums</span>(ps_filtered)) </span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>reads_per_sample_df<span class="sc">$</span>sampleID <span class="ot">&lt;-</span> <span class="fu">rownames</span>(reads_per_sample_df)</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>reads_per_sample_df <span class="ot">&lt;-</span> reads_per_sample_df[,<span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">1</span>)] <span class="co"># reorder columns</span></span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>reads_per_sample_df_sorted <span class="ot">&lt;-</span> reads_per_sample_df[<span class="fu">order</span>(reads_per_sample_df<span class="sc">$</span>Reads),] <span class="co"># order samples by read count (ascending)</span></span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a><span class="co">#Making histogram to visualize reads</span></span>
+<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>read_depth_histo <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(reads_per_sample_df_sorted, <span class="fu">aes</span>(<span class="at">x =</span> Reads)) <span class="sc">+</span> <span class="fu">geom_histogram</span>(<span class="at">color =</span> <span class="st">"black"</span>, <span class="at">fill =</span> <span class="st">"indianred"</span>, <span class="at">binwidth =</span> <span class="dv">2500</span>) <span class="sc">+</span> </span>
+<span id="cb36-11"><a href="#cb36-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggtitle</span>(<span class="st">"Sequence depth distribution across samples"</span>) <span class="sc">+</span> </span>
+<span id="cb36-12"><a href="#cb36-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Number of reads"</span>) <span class="sc">+</span> </span>
+<span id="cb36-13"><a href="#cb36-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.title.y =</span> <span class="fu">element_blank</span>())</span>
+<span id="cb36-14"><a href="#cb36-14" aria-hidden="true" tabindex="-1"></a>read_depth_histo</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="FishMicrobeAnalysis3_files/figure-html/seq_depth_hist-1.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Smallest read depth</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>min_read_depth <span class="ot">&lt;-</span> <span class="fu">min</span>(<span class="fu">sample_sums</span>(ps_filtered))</span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Largest read depth</span></span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>max_read_depth <span class="ot">&lt;-</span> <span class="fu">max</span>(<span class="fu">sample_sums</span>(ps_filtered))</span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Mean read depth</span></span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>average <span class="ot">=</span> <span class="fu">mean</span>(reads_per_sample_df<span class="sc">$</span>Reads)</span>
+<span id="cb37-9"><a href="#cb37-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-10"><a href="#cb37-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard Deviation of read depth</span></span>
+<span id="cb37-11"><a href="#cb37-11" aria-hidden="true" tabindex="-1"></a>stdev <span class="ot">=</span> <span class="fu">sd</span>(reads_per_sample_df<span class="sc">$</span>Reads)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<ul>
+<li>minimum read depth: 0</li>
+<li>maximum read depth: 5.3893^{4}</li>
+<li>mean read depth: 1.7264125^{4}</li>
+<li>standard dev. read depth: 1.2809092^{4}</li>
+</ul>
+<p>Create a rarefaction curve to look at how well the samples represent their community.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co"># having an issue with the really low abundance samples. I will start by removing samples with less than 1000 reads.</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>ps_1000 <span class="ot">&lt;-</span> <span class="fu">prune_samples</span>(<span class="fu">sample_sums</span>(ps_filtered) <span class="sc">&gt;</span> <span class="dv">1000</span>, ps_filtered)</span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1024</span>)</span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>rareres <span class="ot">&lt;-</span> <span class="fu">get_rarecurve</span>(<span class="at">obj=</span>ps_1000, <span class="at">chunks=</span><span class="dv">400</span>)</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a>prare4 <span class="ot">&lt;-</span> <span class="fu">ggrarecurve</span>(<span class="at">obj=</span>rareres,</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a>                      <span class="at">factorNames=</span><span class="st">"sampleType"</span>,</span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a>                      <span class="at">shadow=</span><span class="cn">FALSE</span>,</span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a>                      <span class="at">indexNames=</span><span class="fu">c</span>(<span class="st">"Observe"</span>)</span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a>) <span class="sc">+</span></span>
+<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values=</span><span class="fu">c</span>(<span class="st">"#e8ae66"</span>, <span class="st">"#b8de78"</span>))<span class="sc">+</span></span>
+<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
+<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text=</span><span class="fu">element_text</span>(<span class="at">size=</span><span class="dv">8</span>), <span class="at">panel.grid=</span><span class="fu">element_blank</span>(),</span>
+<span id="cb38-15"><a href="#cb38-15" aria-hidden="true" tabindex="-1"></a>        <span class="at">strip.background =</span> <span class="fu">element_rect</span>(<span class="at">colour=</span><span class="cn">NA</span>,<span class="at">fill=</span><span class="st">"grey"</span>),</span>
+<span id="cb38-16"><a href="#cb38-16" aria-hidden="true" tabindex="-1"></a>        <span class="at">strip.text.x =</span> <span class="fu">element_text</span>(<span class="at">face=</span><span class="st">"bold"</span>))<span class="sc">+</span></span>
+<span id="cb38-17"><a href="#cb38-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="dv">0</span>,<span class="dv">1000</span>)<span class="sc">+</span></span>
+<span id="cb38-18"><a href="#cb38-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">"Observed ASVs"</span>)<span class="sc">+</span></span>
+<span id="cb38-19"><a href="#cb38-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Number of Reads"</span>)<span class="sc">+</span></span>
+<span id="cb38-20"><a href="#cb38-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="st">"Sample Type"</span>))</span>
+<span id="cb38-21"><a href="#cb38-21" aria-hidden="true" tabindex="-1"></a>prare4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="FishMicrobeAnalysis3_files/figure-html/rarefaction_curves-1.png" class="img-fluid" width="672"></p>
+</div>
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="co"># limit x axis</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>prare4 <span class="ot">&lt;-</span> <span class="fu">ggrarecurve</span>(<span class="at">obj=</span>rareres,</span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>                      <span class="at">factorNames=</span><span class="st">"sampleType"</span>,</span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a>                      <span class="at">shadow=</span><span class="cn">FALSE</span>,</span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a>                      <span class="at">indexNames=</span><span class="fu">c</span>(<span class="st">"Observe"</span>)</span>
+<span id="cb39-6"><a href="#cb39-6" aria-hidden="true" tabindex="-1"></a>) <span class="sc">+</span></span>
+<span id="cb39-7"><a href="#cb39-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_manual</span>(<span class="at">values=</span><span class="fu">c</span>(<span class="st">"#e8ae66"</span>, <span class="st">"#b8de78"</span>))<span class="sc">+</span></span>
+<span id="cb39-8"><a href="#cb39-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
+<span id="cb39-9"><a href="#cb39-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(<span class="at">axis.text=</span><span class="fu">element_text</span>(<span class="at">size=</span><span class="dv">8</span>), <span class="at">panel.grid=</span><span class="fu">element_blank</span>(),</span>
+<span id="cb39-10"><a href="#cb39-10" aria-hidden="true" tabindex="-1"></a>        <span class="at">strip.background =</span> <span class="fu">element_rect</span>(<span class="at">colour=</span><span class="cn">NA</span>,<span class="at">fill=</span><span class="st">"grey"</span>),</span>
+<span id="cb39-11"><a href="#cb39-11" aria-hidden="true" tabindex="-1"></a>        <span class="at">strip.text.x =</span> <span class="fu">element_text</span>(<span class="at">face=</span><span class="st">"bold"</span>))<span class="sc">+</span></span>
+<span id="cb39-12"><a href="#cb39-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylim</span>(<span class="dv">0</span>,<span class="dv">1000</span>)<span class="sc">+</span></span>
+<span id="cb39-13"><a href="#cb39-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlim</span>(<span class="dv">0</span>,<span class="dv">20000</span>)<span class="sc">+</span></span>
+<span id="cb39-14"><a href="#cb39-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ylab</span>(<span class="st">"Observed ASVs"</span>)<span class="sc">+</span></span>
+<span id="cb39-15"><a href="#cb39-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">xlab</span>(<span class="st">"Number of Reads"</span>)<span class="sc">+</span></span>
+<span id="cb39-16"><a href="#cb39-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">guides</span>(<span class="at">color =</span> <span class="fu">guide_legend</span>(<span class="at">title =</span> <span class="st">"Sample Type"</span>))</span>
+<span id="cb39-17"><a href="#cb39-17" aria-hidden="true" tabindex="-1"></a>prare4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output-display">
+<p><img src="FishMicrobeAnalysis3_files/figure-html/rarefaction_curves-2.png" class="img-fluid" width="672"></p>
+</div>
+</div>
+<p>The rarefaction curves show that most samples approach a plateau by 5000 reads. I will use this as the minimum number of reads required to keep a sample in the analysis.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a>ps_analyze <span class="ot">&lt;-</span> <span class="fu">prune_samples</span>(<span class="fu">sample_sums</span>(ps_filtered) <span class="sc">&gt;</span> <span class="dv">5000</span>, ps_filtered)</span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Two stations have the wrong river in the metadata file. I am fixing that here.</span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>ps_analyze<span class="sc">@</span>sam_data<span class="sc">$</span>river[<span class="dv">101</span>] <span class="ot">=</span> <span class="st">"elkhorn"</span></span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>ps_analyze<span class="sc">@</span>sam_data<span class="sc">$</span>river[<span class="dv">118</span>] <span class="ot">=</span> <span class="st">"elkhorn"</span></span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a>ps_analyze</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>phyloseq-class experiment-level object
+otu_table()   OTU Table:         [ 1632 taxa and 144 samples ]
+sample_data() Sample Data:       [ 144 samples by 30 sample variables ]
+tax_table()   Taxonomy Table:    [ 1632 taxa by 7 taxonomic ranks ]
+phy_tree()    Phylogenetic Tree: [ 1632 tips and 1631 internal nodes ]</code></pre>
+</div>
+</div>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>samples_lost <span class="ot">=</span> <span class="fu">dim</span>(ps_filtered<span class="sc">@</span>otu_table)[<span class="dv">2</span>] <span class="sc">-</span> <span class="fu">dim</span>(ps_analyze<span class="sc">@</span>otu_table)[<span class="dv">2</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<div class="callout-warning callout callout-style-default callout-captioned">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-caption-container flex-fill">
+Warning
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Filtering out samples with less than 5,000 reads removed 32 samples from the data set.</p>
+</div>
+</div>
+</section>
+<section id="update-on-filtering-4" class="level3" data-number="5.6.4">
+<h3 data-number="5.6.4" class="anchored" data-anchor-id="update-on-filtering-4"><span class="header-section-number">5.6.4</span> Update on Filtering</h3>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of ASV's remaining</span></span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>asv6 <span class="ot">=</span> <span class="fu">dim</span>(ps_analyze<span class="sc">@</span>otu_table)[<span class="dv">1</span>]</span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of Reads remaining</span></span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>sum6 <span class="ot">=</span> <span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_analyze))</span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Percentage of reads remaing</span></span>
+<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a>per6 <span class="ot">=</span> (<span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_analyze)<span class="sc">/</span><span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_filtered))))<span class="sc">*</span><span class="dv">100</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<ul>
+<li>1632 ASVs remain</li>
+<li>2.963898^{6} reads remain</li>
+<li>97.5452248% reads retained</li>
+</ul>
+</section>
+</section>
+<section id="prunning-taxa-that-do-not-belong-to-any-sample" class="level2" data-number="5.7">
+<h2 data-number="5.7" class="anchored" data-anchor-id="prunning-taxa-that-do-not-belong-to-any-sample"><span class="header-section-number">5.7</span> Prunning taxa that do not belong to any sample</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>ps_final_analyze <span class="ot">&lt;-</span> <span class="fu">prune_species</span>(<span class="fu">speciesSums</span>(ps_analyze) <span class="sc">&gt;</span> <span class="dv">0</span>, ps_analyze)</span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>ps_final_analyze</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>phyloseq-class experiment-level object
+otu_table()   OTU Table:         [ 1613 taxa and 144 samples ]
+sample_data() Sample Data:       [ 144 samples by 30 sample variables ]
+tax_table()   Taxonomy Table:    [ 1613 taxa by 7 taxonomic ranks ]
+phy_tree()    Phylogenetic Tree: [ 1613 tips and 1612 internal nodes ]</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="co"># save</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(ps_final_analyze, <span class="st">"ps_final_analyze.rds"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="update-on-filtering-5" class="level3" data-number="5.7.1">
+<h3 data-number="5.7.1" class="anchored" data-anchor-id="update-on-filtering-5"><span class="header-section-number">5.7.1</span> Update on Filtering</h3>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of ASV's remaining</span></span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>asv7 <span class="ot">=</span> <span class="fu">dim</span>(ps_final_analyze<span class="sc">@</span>otu_table)[<span class="dv">1</span>]</span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Number of Reads remaining</span></span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a>sum7 <span class="ot">=</span> <span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_final_analyze))</span>
+<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb47-7"><a href="#cb47-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Percentage of reads remaing</span></span>
+<span id="cb47-8"><a href="#cb47-8" aria-hidden="true" tabindex="-1"></a>per7 <span class="ot">=</span> (<span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_final_analyze)<span class="sc">/</span><span class="fu">sum</span>(<span class="fu">taxa_sums</span>(ps_analyze))))<span class="sc">*</span><span class="dv">100</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<ul>
+<li>1613 ASVs remain</li>
+<li>2.963898^{6} reads remain</li>
+<li>100% reads retained</li>
+</ul>
+</section>
+</section>
+<section id="track-reads-through-filtering" class="level2" data-number="5.8">
+<h2 data-number="5.8" class="anchored" data-anchor-id="track-reads-through-filtering"><span class="header-section-number">5.8</span> Track reads through filtering</h2>
+<p>This table shows a summary of where reads and ASVs were removed in the filtering steps.</p>
+<div class="cell">
+<details>
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a>asvper2 <span class="ot">=</span> (asv2<span class="sc">/</span>asv1)<span class="sc">*</span><span class="dv">100</span></span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>asvper3 <span class="ot">=</span> (asv3<span class="sc">/</span>asv2)<span class="sc">*</span><span class="dv">100</span></span>
+<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a>asvper4 <span class="ot">=</span> (asv4<span class="sc">/</span>asv3)<span class="sc">*</span><span class="dv">100</span></span>
+<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a>asvper5 <span class="ot">=</span> (asv5<span class="sc">/</span>asv4)<span class="sc">*</span><span class="dv">100</span></span>
+<span id="cb48-5"><a href="#cb48-5" aria-hidden="true" tabindex="-1"></a>asvper6 <span class="ot">=</span> (asv6<span class="sc">/</span>asv5)<span class="sc">*</span><span class="dv">100</span></span>
+<span id="cb48-6"><a href="#cb48-6" aria-hidden="true" tabindex="-1"></a>asvper7 <span class="ot">=</span> (asv7<span class="sc">/</span>asv6)<span class="sc">*</span><span class="dv">100</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+</div>
+<table class="table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Filtering Step</th>
+<th style="text-align: center;"># ASV</th>
+<th style="text-align: center;">% ASV retained</th>
+<th style="text-align: center;"># reads</th>
+<th style="text-align: center;">% reads retained</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">Start</td>
+<td style="text-align: center;">17155</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">3.521673^{6}</td>
+<td style="text-align: center;"></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">Decontam</td>
+<td style="text-align: center;">17126</td>
+<td style="text-align: center;">99.8309531</td>
+<td style="text-align: center;">3.499869^{6}</td>
+<td style="text-align: center;">99.3808624</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">Remove Negative Controls</td>
+<td style="text-align: center;">17126</td>
+<td style="text-align: center;">100</td>
+<td style="text-align: center;">3.495994^{6}</td>
+<td style="text-align: center;">99.8892816</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">Non-target Domains</td>
+<td style="text-align: center;">16762</td>
+<td style="text-align: center;">97.8745767</td>
+<td style="text-align: center;">3.482328^{6}</td>
+<td style="text-align: center;">99.6090954</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">Prevalence / Abundance Filtering</td>
+<td style="text-align: center;">1632</td>
+<td style="text-align: center;">9.7363083</td>
+<td style="text-align: center;">3.038486^{6}</td>
+<td style="text-align: center;">87.2544459</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">Samples \&lt; 5000 reads</td>
+<td style="text-align: center;">1632</td>
+<td style="text-align: center;">100</td>
+<td style="text-align: center;">2.963898^{6}</td>
+<td style="text-align: center;">97.5452248</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">ASVs w/ no sample</td>
+<td style="text-align: center;">1613</td>
+<td style="text-align: center;">98.8357843</td>
+<td style="text-align: center;">2.963898^{6}</td>
+<td style="text-align: center;">100</td>
+</tr>
+</tbody>
+</table>
+
+</section>
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography"><h2 class="anchored quarto-appendix-heading">References</h2><div id="refs" class="references csl-bib-body hanging-indent" role="doc-bibliography">
+<div id="ref-Callahan2016DADA2" class="csl-entry" role="doc-biblioentry">
+Callahan, B. J., P. J. McMurdie, M. J. Rosen, A. W. Han, A. J. A. Johnson, and S. P. Holmes. 2016. <a href="https://doi.org/10.1038/nmeth.3869">DADA2: High-resolution sample inference from illumina amplicon data</a>. Nature Methods 13:581–583.
+</div>
+<div id="ref-Davis2017simple" class="csl-entry" role="doc-biblioentry">
+Davis, N. M., D. Proctor, S. P. Holmes, D. A. Relman, and B. J. Callahan. 2017. <a href="https://doi.org/10.1101/221499">Simple statistical identification and removal of contaminant sequences in marker-gene and metagenomics data</a>. bioRxiv:221499.
+</div>
+<div id="ref-Gentleman2022genefilter" class="csl-entry" role="doc-biblioentry">
+Gentleman, R., V. J. Carey, W. Huber, and F. Hahne. 2022. Genefilter: Genefilter: Methods for filtering genes from high-throughput experiments.
+</div>
+<div id="ref-McMurdie2013phyloseq" class="csl-entry" role="doc-biblioentry">
+McMurdie, P. J., and S. Holmes. 2013. <a href="http://dx.plos.org/10.1371/journal.pone.0061217">Phyloseq: An r package for reproducible interactive analysis and graphics of microbiome census data</a>. PLoS ONE 8(4):e61217.
+</div>
+<div id="ref-Wickham2019stringr" class="csl-entry" role="doc-biblioentry">
+Wickham, H. 2019. <a href="https://CRAN.R-project.org/package=stringr">Stringr: Simple, consistent wrappers for common string operations</a>.
+</div>
+</div></section></div></main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
